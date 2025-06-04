@@ -327,8 +327,7 @@ Exemple:
       }
     }, 30000); // Auto-save every 30 seconds
 
-    // Restore data on load
-    document.addEventListener('DOMContentLoaded', () => {
+      // Restore data on load
       const backupData = localStorage.getItem('app-backup-data');
       const backupTimestamp = localStorage.getItem('app-backup-timestamp');
       
@@ -339,11 +338,12 @@ Exemple:
         if (hoursDiff < 24) { // Restore if less than 24 hours old
           if (confirm('Des données sauvegardées automatiquement ont été trouvées. Voulez-vous les restaurer ?')) {
             document.getElementById('rawExcel').value = backupData;
-            app.showNotification('Données restaurées depuis la sauvegarde automatique', 'success');
+            if (app) {
+              app.showNotification('Données restaurées depuis la sauvegarde automatique', 'success');
+            }
           }
         }
       }
-    });
   </script>
   
   <!-- CSS pour le modal -->
