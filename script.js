@@ -251,10 +251,14 @@ class ReportGenerator {
       <h3 class="chart-title">
         ${this.getChartIcon(type)} ${this.getChartTypeLabel(type)} - ${dataLabel}
       </h3>
-      <button class="btn btn-danger" onclick="app.removeChart('${chartId}')">
+      <button class="btn btn-danger" data-chart-id="${chartId}">
         <i class="fas fa-times"></i>
       </button>
     `;
+
+    // Add event listener to delete button
+    const deleteBtn = chartHeader.querySelector('.btn-danger');
+    deleteBtn.addEventListener('click', () => this.removeChart(chartId));
 
     const chartContent = document.createElement("div");
     chartContent.className = "chart-content";
@@ -783,10 +787,18 @@ class ReportGenerator {
 // ================================
 // APPLICATION INITIALIZATION
 // ================================
-const app = new ReportGenerator();
+document.addEventListener('DOMContentLoaded', () => {
+  // Initialize the app
+  app = new ReportGenerator();
+  
+  console.log('Application de génération de rapports initialisée');
+  
+  // Add additional features buttons
+  addFeatureButtons();
+});
 
-// Global functions for onclick handlers
-window.app = app;
+// Global functions for compatibility
+window.app = null;
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -803,7 +815,7 @@ function addFeatureButtons() {
     const exportBtn = document.createElement('button');
     exportBtn.className = 'btn btn-secondary';
     exportBtn.innerHTML = '<i class="fas fa-download"></i> Exporter CSV';
-    exportBtn.onclick = () => app.exportToCSV();
+    exportBtn.addEventListener('click', () => app.exportToCSV());
     exportBtn.style.marginTop = '1rem';
     tableContainer.appendChild(exportBtn);
   }
@@ -815,15 +827,21 @@ function addFeatureButtons() {
     templateSection.className = 'btn-group';
     templateSection.style.marginTop = '1rem';
     templateSection.innerHTML = `
-      <button class="btn btn-secondary" onclick="app.saveAsTemplate()">
+      <button class="btn btn-secondary" id="saveTemplateBtn">
         <i class="fas fa-save"></i> Sauvegarder Template
       </button>
       <input type="file" id="templateInput" accept=".json" style="display: none;">
-      <button class="btn btn-secondary" onclick="document.getElementById('templateInput').click()">
+      <button class="btn btn-secondary" id="loadTemplateBtn">
         <i class="fas fa-upload"></i> Charger Template
       </button>
     `;
     cardBody.appendChild(templateSection);
+
+    // Add event listeners for template functionality
+    document.getElementById('saveTemplateBtn').addEventListener('click', () => app.saveAsTemplate());
+    document.getElementById('loadTemplateBtn').addEventListener('click', () => {
+      document.getElementById('templateInput').click();
+    });
 
     // Add template file handler
     document.getElementById('templateInput').addEventListener('change', (e) => {
