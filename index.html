@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Générateur de Rapports d'Enquête</title>
+  
+  <!-- External Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.autotable.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  
+  <style>
+    /* ================================
+       CSS VARIABLES & RESET
+       ================================ */
+    :root {
+      --primary-50: #eff6ff;
+      --primary-100: #dbeafe;
+      --primary-500: #3b82f6;
+      --primary-600: #2563eb;
+      --primary-700: #1d4ed8;
+      
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+      
+      --border-radius: 0.75rem;
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, var(--gray-50) 0%, var(--primary-50) 100%);
+      color: var(--gray-900);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ================================
+       LAYOUT COMPONENTS
+       ================================ */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding: 2rem 0;
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 0.5rem;
+    }
+
+    .header .subtitle {
+      color: var(--gray-600);
+      font-size: 1.1rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-md);
+      margin-bottom: 2rem;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-header {
+      padding: 1.5rem 2rem;
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .card-header h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--gray-900);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .card-body {
+      padding: 2rem;
+    }
+
+    .step-indicator {
+      background: var(--primary-500);
+      color: white;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    /* ================================
+       FORM COMPONENTS
+       ================================ */
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 500;
+      color: var(--gray-700);
+      margin-bottom: 0.5rem;
+    }
+
+    .form-input, .form-textarea, .form-select {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      transition: var(--transition);
+      background: white;
+    }
+
+    .form-input:focus, .form-textarea:focus, .form-select:focus {
+      outline: none;
+      border-color: var(--primary-500);
+      box-shadow: 0 0 0 3px rgb(59 130 246 / 10%);
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 120px;
+      font-family: 'Monaco', 'Consolas', monospace;
+    }
+
+    .file-upload-area {
+      border: 2px dashed var(--gray-300);
+      border-radius: var(--border-radius);
+      padding: 3rem;
+      text-align: center;
+      transition: var(--transition);
+      cursor: pointer;
+    }
+
+    .file-upload-area:hover {
+      border-color: var(--primary-500);
+      background: var(--primary-50);
+    }
+
+    .file-upload-area.dragover {
+      border-color: var(--primary-500);
+      background: var(--primary-50);
+    }
+
+    .file-upload-icon {
+      font-size: 3rem;
+      color: var(--gray-400);
+      margin-bottom: 1rem;
+    }
+
+    /* ================================
+       BUTTON COMPONENTS
+       ================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--primary-500);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-600);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-secondary {
+      background: var(--gray-100);
+      color: var(--gray-700);
+      border: 1px solid var(--gray-300);
+    }
+
+    .btn-secondary:hover {
+      background: var(--gray-200);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #059669;
+    }
+
+    .btn-danger {
+      background: var(--error);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* ================================
+       TABLE COMPONENTS
+       ================================ */
+    .table-container {
+      background: white;
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      margin-top: 2rem;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table thead th {
+      background: var(--gray-50);
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--gray-700);
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .table tbody td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--gray-100);
+    }
+
+    .table tbody tr:hover {
+      background: var(--gray-50);
+    }
+
+    /* ================================
+       CHART COMPONENTS
+       ================================ */
+    .chart-container {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-md);
+      margin-bottom: 2rem;
+      overflow: hidden;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: between;
+      align-items: center;
+      padding: 1.5rem 2rem;
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .chart-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .chart-content {
+      padding: 2rem;
+      position: relative;
+    }
+
+    .chart-content canvas {
+      max-height: 400px !important;
+    }
+
+    /* ================================
+       UTILITY CLASSES
+       ================================ */
+    .flex {
+      display: flex;
+    }
+
+    .items-center {
+      align-items: center;
+    }
+
+    .justify-between {
+      justify-content: space-between;
+    }
+
+    .gap-4 {
+      gap: 1rem;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .text-success {
+      color: var(--success);
+    }
+
+    .text-error {
+      color: var(--error);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    /* ================================
+       RESPONSIVE DESIGN
+       ================================ */
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+      
+      .header h1 {
+        font-size: 2rem;
+      }
+      
+      .card-body {
+        padding: 1.5rem;
+      }
+      
+      .btn-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+
+    /* ================================
+       ANIMATIONS
+       ================================ */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1><i class="fas fa-chart-bar"></i> Générateur de Rapports d'Enquête</h1>
+      <p class="subtitle">Analysez vos données Excel et créez des rapports professionnels</p>
+    </header>
+
+    <!-- Step 1: Data Import -->
+    <div class="card">
+      <div class="card-header">
+        <h2>
+          <span class="step-indicator">1</span>
+          Importation des données
+        </h2>
+      </div>
+      <div class="card-body">
+        <!-- File Upload Area -->
+        <div class="file-upload-area" id="fileUploadArea">
+          <div class="file-upload-icon">
+            <i class="fas fa-cloud-upload-alt"></i>
+          </div>
+          <h3>Glissez-déposez votre fichier Excel ici</h3>
+          <p>ou cliquez pour sélectionner un fichier (.xlsx, .xls, .csv)</p>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+        </div>
+
+        <!-- Manual Data Entry -->
+        <div class="form-group" style="margin-top: 2rem;">
+          <label class="form-label">Ou collez vos données manuellement</label>
+          <textarea 
+            id="rawExcel" 
+            class="form-textarea" 
+            placeholder="Collez ici vos données Excel (avec tabulations, points-virgules, ou format brut)...
+Exemple:
+Établissement A	25
+Établissement B	18
+Établissement C	32"></textarea>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="app.convertData()">
+            <i class="fas fa-sync-alt"></i>
+            Convertir les données
+          </button>
+          <button class="btn btn-secondary" onclick="app.clearData()">
+            <i class="fas fa-trash"></i>
+            Effacer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Data Preview -->
+    <div class="card">
+      <div class="card-header">
+        <h2>
+          <span class="step-indicator">2</span>
+          Prévisualisation et Configuration
+        </h2>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Données formatées</label>
+          <textarea id="excelData" class="form-textarea" readonly placeholder="Les données converties apparaîtront ici..."></textarea>
+        </div>
+
+        <div class="btn-group">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label">Type de graphique</label>
+            <select id="chartType" class="form-select" style="width: auto;">
+              <option value="bar">📊 Barres</option>
+              <option value="line">📈 Lignes</option>
+              <option value="pie">🥧 Camembert</option>
+              <option value="doughnut">🍩 Anneau</option>
+              <option value="radar">🎯 Radar</option>
+            </select>
+          </div>
+          <button class="btn btn-success" onclick="app.generateChart()">
+            <i class="fas fa-plus"></i>
+            Ajouter un graphique
+          </button>
+        </div>
+
+        <!-- Results Table -->
+        <div class="table-container" id="resultsTableContainer" style="display: none;">
+          <table class="table" id="resultsTable">
+            <thead>
+              <tr>
+                <th>Établissements</th>
+                <th>Valeur</th>
+                <th>Pourcentage</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Charts Display -->
+    <div class="card">
+      <div class="card-header">
+        <h2>
+          <span class="step-indicator">3</span>
+          Graphiques Générés
+        </h2>
+      </div>
+      <div class="card-body">
+        <div id="chartsArea">
+          <div class="text-center" style="padding: 3rem; color: var(--gray-500);">
+            <i class="fas fa-chart-pie" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+            <p>Aucun graphique généré pour le moment</p>
+            <p style="font-size: 0.875rem;">Importez vos données et cliquez sur "Ajouter un graphique"</p>
+          </div>
+        </div>
+
+        <div class="btn-group" style="margin-top: 2rem;">
+          <button class="btn btn-primary" onclick="app.generatePdfReport()">
+            <i class="fas fa-file-pdf"></i>
+            Générer le Rapport PDF
+          </button>
+          <button class="btn btn-secondary" onclick="app.clearAllCharts()">
+            <i class="fas fa-trash-alt"></i>
+            Supprimer tous les graphiques
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ================================
+    // APPLICATION CLASS
+    // ================================
+    class ReportGenerator {
+      constructor() {
+        this.charts = [];
+        this.currentData = null;
+        this.init();
+      }
+
+      init() {
+        this.setupFileUpload();
+        this.setupEventListeners();
+      }
+
+      setupFileUpload() {
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        // Click to select file
+        fileUploadArea.addEventListener('click', () => {
+          fileInput.click();
+        });
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+          this.handleFileSelect(e.target.files[0]);
+        });
+
+        // Drag and drop
+        fileUploadArea.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          fileUploadArea.classList.add('dragover');
+        });
+
+        fileUploadArea.addEventListener('dragleave', () => {
+          fileUploadArea.classList.remove('dragover');
+        });
+
+        fileUploadArea.addEventListener('drop', (e) => {
+          e.preventDefault();
+          fileUploadArea.classList.remove('dragover');
+          const file = e.dataTransfer.files[0];
+          this.handleFileSelect(file);
+        });
+      }
+
+      setupEventListeners() {
+        // Add any additional event listeners here
+      }
+
+      async handleFileSelect(file) {
+        if (!file) return;
+
+        const validTypes = [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+          'text/csv'
+        ];
+
+        if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
+          this.showNotification('Format de fichier non supporté. Utilisez .xlsx, .xls ou .csv', 'error');
+          return;
+        }
+
+        try {
+          this.showLoading(true);
+          const data = await this.readExcelFile(file);
+          document.getElementById('rawExcel').value = data;
+          this.convertData();
+          this.showNotification('Fichier importé avec succès!', 'success');
+        } catch (error) {
+          console.error('Erreur lors de la lecture du fichier:', error);
+          this.showNotification('Erreur lors de la lecture du fichier', 'error');
+        } finally {
+          this.showLoading(false);
+        }
+      }
+
+      async readExcelFile(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          
+          reader.onload = (e) => {
+            try {
+              const data = new Uint8Array(e.target.result);
+              const workbook = XLSX.read(data, { type: 'array' });
+              const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+              const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+              
+              // Convert to text format
+              const textData = jsonData
+                .filter(row => row.length >= 2 && row[0] && row[1])
+                .map(row => `${row[0]}\t${row[1]}`)
+                .join('\n');
+              
+              resolve(textData);
+            } catch (error) {
+              reject(error);
+            }
+          };
+          
+          reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
+          reader.readAsArrayBuffer(file);
+        });
+      }
+
+      convertData() {
+        const input = document.getElementById("rawExcel").value;
+        if (!input.trim()) {
+          this.showNotification('Aucune donnée à convertir', 'warning');
+          return;
+        }
+
+        const lines = input.trim().split(/\r?\n/);
+        const output = ["Établissements\tDécompte"];
+        const regex = /(.+?)\s+([0-9]+(?:[,\.][0-9]+)?)\s*%?$/;
+
+        for (let line of lines) {
+          line = line.replace(/;/g, "\t");
+          const match = line.match(regex);
+          
+          if (match) {
+            const label = match[1].trim();
+            const value = match[2].replace(",", ".");
+            output.push(`${label}\t${value}`);
+          } else {
+            const parts = line.split('\t');
+            if (parts.length >= 2) {
+              const label = parts[0].trim();
+              const value = parts[1].replace(",", ".").trim();
+              if (!isNaN(parseFloat(value))) {
+                output.push(`${label}\t${value}`);
+              }
+            }
+          }
+        }
+
+        document.getElementById("excelData").value = output.join("\n");
+        this.updateResultsTable();
+        this.showNotification('Données converties avec succès!', 'success');
+      }
+
+      parseData(raw) {
+        const rows = raw.trim().split("\n");
+        const headers = rows[0].split("\t");
+        const labels = [];
+        const data = [];
+
+        for (let i = 1; i < rows.length; i++) {
+          const cols = rows[i].split("\t");
+          if (cols.length >= 2) {
+            const label = cols[0];
+            const value = parseFloat(cols[1].replace(",", "."));
+            if (!isNaN(value) && value > 0) {
+              labels.push(label);
+              data.push(value);
+            }
+          }
+        }
+
+        return { labels, data, label: headers[1] };
+      }
+
+      updateResultsTable() {
+        const rawData = document.getElementById("excelData").value;
+        if (!rawData.trim()) return;
+
+        const { labels, data } = this.parseData(rawData);
+        const total = data.reduce((sum, val) => sum + val, 0);
+
+        const tableContainer = document.getElementById("resultsTableContainer");
+        const tableBody = document.querySelector("#resultsTable tbody");
+        
+        tableBody.innerHTML = '';
+
+        labels.forEach((label, index) => {
+          const value = data[index];
+          const percentage = total > 0 ? (value / total * 100).toFixed(1) : 0;
+          const row = tableBody.insertRow();
+          row.insertCell(0).textContent = label;
+          row.insertCell(1).textContent = value;
+          row.insertCell(2).textContent = `${percentage}%`;
+        });
+
+        tableContainer.style.display = 'block';
+        tableContainer.classList.add('fade-in');
+      }
+
+      generateChart() {
+        const rawData = document.getElementById("excelData").value;
+        if (!rawData.trim()) {
+          this.showNotification("Veuillez d'abord convertir les données", 'warning');
+          return;
+        }
+
+        const type = document.getElementById("chartType").value;
+        const { labels, data, label } = this.parseData(rawData);
+
+        if (labels.length === 0) {
+          this.showNotification("Aucune donnée valide trouvée", 'error');
+          return;
+        }
+
+        this.createChart(type, labels, data, label);
+        this.showNotification('Graphique ajouté avec succès!', 'success');
+      }
+
+      createChart(type, labels, data, dataLabel) {
+        const chartsArea = document.getElementById("chartsArea");
+        
+        // Remove placeholder if it exists
+        const placeholder = chartsArea.querySelector('.text-center');
+        if (placeholder) {
+          placeholder.remove();
+        }
+
+        const total = data.reduce((sum, val) => sum + val, 0);
+        const chartId = `chart_${Date.now()}`;
+
+        // Create chart container
+        const chartContainer = document.createElement("div");
+        chartContainer.className = "chart-container fade-in";
+        chartContainer.dataset.chartId = chartId;
+
+        const chartHeader = document.createElement("div");
+        chartHeader.className = "chart-header";
+        chartHeader.innerHTML = `
+          <h3 class="chart-title">
+            ${this.getChartIcon(type)} ${this.getChartTypeLabel(type)} - ${dataLabel}
+          </h3>
+          <button class="btn btn-danger" onclick="app.removeChart('${chartId}')">
+            <i class="fas fa-times"></i>
+          </button>
+        `;
+
+        const chartContent = document.createElement("div");
+        chartContent.className = "chart-content";
+        
+        const canvas = document.createElement("canvas");
+        chartContent.appendChild(canvas);
+        
+        chartContainer.appendChild(chartHeader);
+        chartContainer.appendChild(chartContent);
+        chartsArea.appendChild(chartContainer);
+
+        // Chart configuration
+        const config = {
+          type: type,
+          data: {
+            labels: labels,
+            datasets: [{
+              label: dataLabel,
+              data: data,
+              backgroundColor: this.getColors(data.length),
+              borderColor: this.getColors(data.length, true),
+              borderWidth: 2,
+              tension: type === 'line' ? 0.4 : 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              datalabels: {
+                color: '#fff',
+                anchor: type === 'pie' || type === 'doughnut' ? 'end' : 'end',
+                align: type === 'pie' || type === 'doughnut' ? 'end' : 'top',
+                formatter: (value) => {
+                  const percent = (value / total * 100).toFixed(1);
+                  return `${value} (${percent}%)`;
+                },
+                font: {
+                  weight: 'bold',
+                  size: 12
+                },
+                textShadowBlur: 5,
+                textShadowColor: 'rgba(0, 0, 0, 0.5)'
+              },
+              legend: {
+                labels: {
+                  color: '#374151',
+                  font: {
+                    size: 12
+                  }
+                }
+              },
+              title: {
+                display: true,
+                text: `Distribution des ${dataLabel} par Établissement`,
+                color: '#1f2937',
+                font: {
+                  size: 16,
+                  weight: 'bold'
+                }
+              }
+            },
+            scales: this.getScaleConfig(type)
+          },
+          plugins: [ChartDataLabels]
+        };
+
+        const chart = new Chart(canvas, config);
+        this.charts.push({ 
+          chart, 
+          container: chartContainer, 
+          type, 
+          title: `${this.getChartTypeLabel(type)} - ${dataLabel}`,
+          id: chartId
+        });
+      }
+
+      getChartIcon(type) {
+        const icons = {
+          bar: '📊',
+          line: '📈',
+          pie: '🥧',
+          doughnut: '🍩',
+          radar: '🎯'
+        };
+        return icons[type] || '📊';
+      }
+
+      getChartTypeLabel(type) {
+        const labels = {
+          bar: 'Graphique en Barres',
+          line: 'Graphique Linéaire',
+          pie: 'Camembert',
+          doughnut: 'Graphique en Anneau',
+          radar: 'Graphique Radar'
+        };
+        return labels[type] || 'Graphique';
+      }
+
+      getColors(count, border = false) {
+        const colors = [
+          border ? '#ef4444' : 'rgba(239, 68, 68, 0.8)',
+          border ? '#3b82f6' : 'rgba(59, 130, 246, 0.8)',
+          border ? '#10b981' : 'rgba(16, 185, 129, 0.8)',
+          border ? '#f59e0b' : 'rgba(245, 158, 11, 0.8)',
+          border ? '#8b5cf6' : 'rgba(139, 92, 246, 0.8)',
+          border ? '#06b6d4' : 'rgba(6, 182, 212, 0.8)',
+          border ? '#84cc16' : 'rgba(132, 204, 22, 0.8)',
+          border ? '#f97316' : 'rgba(249, 115, 22, 0.8)',
+          border ? '#ec4899' : 'rgba(236, 72, 153, 0.8)',
+          border ? '#6366f1' : 'rgba(99, 102, 241, 0.8)'
