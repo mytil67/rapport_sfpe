@@ -47,7 +47,7 @@
       
       <!-- Guide d'utilisation rapide -->
       <div class="quick-help" style="margin-top: 1.5rem;">
-        <button class="btn btn-secondary" onclick="toggleHelp()">
+        <button class="btn btn-secondary" id="helpBtn">
           <i class="fas fa-question-circle"></i> Guide rapide
         </button>
       </div>
@@ -58,7 +58,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h2><i class="fas fa-info-circle"></i> Guide d'utilisation</h2>
-          <button class="btn btn-secondary" onclick="toggleHelp()">
+          <button class="btn btn-secondary" id="closeHelpBtn">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -130,11 +130,11 @@ Exemple:
         </div>
 
         <div class="btn-group">
-          <button class="btn btn-primary" onclick="app.convertData()">
+          <button class="btn btn-primary" id="convertDataBtn">
             <i class="fas fa-sync-alt"></i>
             Convertir les données
           </button>
-          <button class="btn btn-secondary" onclick="app.clearData()">
+          <button class="btn btn-secondary" id="clearDataBtn">
             <i class="fas fa-trash"></i>
             Effacer
           </button>
@@ -171,7 +171,7 @@ Exemple:
               <option value="radar">🎯 Radar</option>
             </select>
           </div>
-          <button class="btn btn-success" onclick="app.generateChart()">
+          <button class="btn btn-success" id="generateChartBtn">
             <i class="fas fa-plus"></i>
             Ajouter un graphique
           </button>
@@ -216,11 +216,11 @@ Exemple:
         </div>
 
         <div class="btn-group" style="margin-top: 2rem;">
-          <button class="btn btn-primary" onclick="app.generatePdfReport()">
+          <button class="btn btn-primary" id="generatePdfBtn">
             <i class="fas fa-file-pdf"></i>
             Générer le Rapport PDF
           </button>
-          <button class="btn btn-secondary" onclick="app.clearAllCharts()">
+          <button class="btn btn-secondary" id="clearAllChartsBtn">
             <i class="fas fa-trash-alt"></i>
             Supprimer tous les graphiques
           </button>
@@ -238,7 +238,7 @@ Exemple:
     </p>
     <p>
       Version 2.0 - 
-      <a href="#" onclick="toggleHelp()" style="color: var(--primary-500); text-decoration: none;">
+      <a href="#" id="helpLinkFooter" style="color: var(--primary-500); text-decoration: none;">
         Aide & Documentation
       </a>
     </p>
@@ -249,11 +249,32 @@ Exemple:
   
   <!-- Additional functionality -->
   <script>
+    // Initialize app variable
+    let app = null;
+
     // Help modal functionality
     function toggleHelp() {
       const modal = document.getElementById('helpModal');
       modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
     }
+
+    // Initialize event listeners when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      // Set up event listeners for buttons
+      document.getElementById('convertDataBtn').addEventListener('click', () => app.convertData());
+      document.getElementById('clearDataBtn').addEventListener('click', () => app.clearData());
+      document.getElementById('generateChartBtn').addEventListener('click', () => app.generateChart());
+      document.getElementById('generatePdfBtn').addEventListener('click', () => app.generatePdfReport());
+      document.getElementById('clearAllChartsBtn').addEventListener('click', () => app.clearAllCharts());
+      document.getElementById('helpBtn').addEventListener('click', toggleHelp);
+      document.getElementById('closeHelpBtn').addEventListener('click', toggleHelp);
+      document.getElementById('helpLinkFooter').addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleHelp();
+      });
+
+      console.log('Event listeners configurés');
+    });
 
     // Close modal when clicking outside
     window.onclick = function(event) {
