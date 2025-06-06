@@ -342,27 +342,135 @@ class SurveyAnalyzer {
         this.surveyData = {};
         
         Object.entries(groupedByEtablissement).forEach(([etablissement, responses]) => {
-            const satisfactionCounts = {};
-            const gestionnaireCounts = {};
-            const genreCounts = {};
-            const cspCounts = {};
-            
+            this.surveyData[etablissement] = this.calculateEtablissementStatistics(etablissement, responses);
+        });
+    }
+
+    calculateEtablissementStatistics(etablissement, responses) {
+        const stats = {
+            totalReponses: responses.length,
+            satisfaction: {},
+            gestionnaire: {},
+            genre: {},
+            csp: {},
+            responses: responses,
+            // Nouvelles statistiques par question
+            questionStats: {},
+            openQuestions: {},
+            closedQuestions: {}
+        };
+
+        // Statistiques de base (comme avant)
+        responses.forEach(response => {
+            stats.satisfaction[response.satisfaction] = (stats.satisfaction[response.satisfaction] || 0) + 1;
+            stats.gestionnaire[response.gestionnaire] = (stats.gestionnaire[response.gestionnaire] || 0) + 1;
+            stats.genre[response.genre] = (stats.genre[response.genre] || 0) + 1;
+            stats.csp[response.csp] = (stats.csp[response.csp] || 0) + 1;
+        });
+
+        // Analyser toutes les questions pour créer des statistiques agrégées
+        const allQuestions = new Set();
+        
+        // Collecter toutes les questions possibles
+        responses.forEach(response => {
+            if (response.additionalData) {
+                Object.keys(response.additionalData).forEach(questionKey => {
+                    allQuestions.add(questionKey);
+                });
+            }
+        });
+
+        // Pour chaque question, calculer les statistiques
+        allQuestions.forEach(questionKey => {
+            const questionData = {
+                question: this.formatQuestionFromKey(questionKey),
+                answers: {},
+                totalResponses: 0,
+                responsesList: [], // Pour les questions ouvertes
+                isOpenQuestion: false
+            };
+
             responses.forEach(response => {
-                satisfactionCounts[response.satisfaction] = (satisfactionCounts[response.satisfaction] || 0) + 1;
-                gestionnaireCounts[response.gestionnaire] = (gestionnaireCounts[response.gestionnaire] || 0) + 1;
-                genreCounts[response.genre] = (genreCounts[response.genre] || 0) + 1;
-                cspCounts[response.csp] = (cspCounts[response.csp] || 0) + 1;
+                if (response.additionalData && response.additionalData[questionKey]) {
+                    const answer = response.additionalData[questionKey].toString().trim();
+                    
+                    if (answer && answer !== 'N/A') {
+                        questionData.totalResponses++;
+                        
+                        // Déterminer si c'est une question fermée ou ouverte
+                        if (this.isClosedQuestion(answer)) {
+                            const normalizedAnswer = this.normalizeClosedAnswer(answer);
+                            questionData.answers[normalizedAnswer] = (questionData.answers[normalizedAnswer] || 0) + 1;
+                        } else {
+                            questionData.isOpenQuestion = true;
+                            questionData.responsesList.push({
+                                answer: answer,
+                                respondentId: response.id,
+                                genre: response.genre,
+                                csp: response.csp
+                            });
+                        }
+                    }
+                }
             });
 
-            this.surveyData[etablissement] = {
-                totalReponses: responses.length,
-                satisfaction: satisfactionCounts,
-                gestionnaire: gestionnaireCounts,
-                genre: genreCounts,
-                csp: cspCounts,
-                responses: responses
-            };
+            if (questionData.totalResponses > 0) {
+                stats.questionStats[questionKey] = questionData;
+                
+                if (questionData.isOpenQuestion) {
+                    stats.openQuestions[questionKey] = questionData;
+                } else {
+                    stats.closedQuestions[questionKey] = questionData;
+                }
+            }
         });
+
+        return stats;
+    }
+
+    isClosedQuestion(answer) {
+        const closedAnswers = [
+            'oui', 'non', 'yes', 'no',
+            'très satisfait', 'plutôt satisfait', 'peu satisfait', 'pas satisfait',
+            'toujours', 'souvent', 'parfois', 'jamais',
+            'beaucoup', 'moyennement', 'peu', 'pas du tout',
+            'excellent', 'bon', 'moyen', 'mauvais',
+            'facile', 'difficile',
+            'suffisant', 'insuffisant',
+            'adapté', 'inadapté',
+            'x', '✓', '1', '0'
+        ];
+        
+        const answerLower = answer.toLowerCase().trim();
+        
+        // Vérifier si c'est une réponse fermée typique
+        return closedAnswers.some(closedAnswer => 
+            answerLower === closedAnswer || 
+            answerLower.includes(closedAnswer)
+        ) || answerLower.length < 10; // Réponses courtes = probablement fermées
+    }
+
+    normalizeClosedAnswer(answer) {
+        const answerLower = answer.toLowerCase().trim();
+        
+        // Normaliser les réponses communes
+        if (answerLower === 'oui' || answerLower === 'yes' || answerLower === 'x' || answerLower === '✓' || answerLower === '1') {
+            return 'Oui';
+        }
+        if (answerLower === 'non' || answerLower === 'no' || answerLower === '0') {
+            return 'Non';
+        }
+        if (answerLower.includes('très satisfait')) return 'Très satisfait';
+        if (answerLower.includes('plutôt satisfait')) return 'Plutôt satisfait';
+        if (answerLower.includes('peu satisfait')) return 'Peu satisfait';
+        if (answerLower.includes('pas satisfait')) return 'Pas satisfait';
+        if (answerLower.includes('toujours')) return 'Toujours';
+        if (answerLower.includes('souvent')) return 'Souvent';
+        if (answerLower.includes('parfois')) return 'Parfois';
+        if (answerLower.includes('jamais')) return 'Jamais';
+        
+        // Capitaliser la première lettre pour les autres réponses
+        return answer.charAt(0).toUpperCase() + answer.slice(1).toLowerCase();
     }
 
     calculateSatisfactionPercentage(satisfactionData) {
@@ -589,6 +697,7 @@ class SurveyAnalyzer {
     renderDetailedResponses(etablissementName, data) {
         const container = document.getElementById('modal-content');
         
+        // Statistiques générales
         const summaryHtml = `
             <div class="response-item" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none;">
                 <h3 style="margin: 0 0 15px 0;">📊 Résumé pour ${etablissementName}</h3>
@@ -609,41 +718,110 @@ class SurveyAnalyzer {
             </div>
         `;
 
-        const responsesHtml = data.responses.map((response, index) => {
-            const satisfactionClass = response.satisfaction.toLowerCase().replace(/[^a-z]/g, '-');
-            
-            return `
-                <div class="response-item">
-                    <div class="response-header">
-                        <div class="response-field">
-                            <div class="response-field-label">Réponse</div>
-                            <div class="response-field-value">#${index + 1}</div>
-                        </div>
-                        <div class="response-field">
-                            <div class="response-field-label">Genre</div>
-                            <div class="response-field-value">${response.genre}</div>
-                        </div>
-                        <div class="response-field">
-                            <div class="response-field-label">CSP</div>
-                            <div class="response-field-value">${response.csp}</div>
-                        </div>
-                        <div class="response-field">
-                            <div class="response-field-label">Satisfaction</div>
-                            <div class="response-field-value satisfaction ${satisfactionClass}">${response.satisfaction}</div>
-                        </div>
-                        ${response.date ? `
-                        <div class="response-field">
-                            <div class="response-field-label">Date</div>
-                            <div class="response-field-value">${response.date.toLocaleDateString('fr-FR')}</div>
-                        </div>
-                        ` : ''}
-                    </div>
-                    ${this.renderDetailedQuestions(response)}
+        // Questions fermées - Statistiques agrégées
+        let closedQuestionsHtml = '';
+        if (data.closedQuestions && Object.keys(data.closedQuestions).length > 0) {
+            closedQuestionsHtml = `
+                <div class="response-item" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; border: none; margin-bottom: 20px;">
+                    <h3 style="margin: 0 0 15px 0;">📊 Questions fermées - Statistiques</h3>
                 </div>
             `;
-        }).join('');
 
-        container.innerHTML = summaryHtml + responsesHtml;
+            Object.entries(data.closedQuestions).forEach(([questionKey, questionData]) => {
+                const percentages = this.calculatePercentages(questionData.answers, questionData.totalResponses);
+                
+                closedQuestionsHtml += `
+                    <div class="response-item">
+                        <h4 style="color: #4facfe; margin-bottom: 15px;">${questionData.question}</h4>
+                        <div style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">
+                            ${questionData.totalResponses} réponse${questionData.totalResponses > 1 ? 's' : ''}
+                        </div>
+                        <div class="question-stats">
+                            ${Object.entries(percentages).map(([answer, data]) => `
+                                <div class="stat-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 5px;">
+                                    <span style="font-weight: 500;">${answer}</span>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div class="mini-bar" style="width: 100px; height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                                            <div style="width: ${data.percentage}%; height: 100%; background: linear-gradient(90deg, #4facfe, #00f2fe); transition: width 0.5s ease;"></div>
+                                        </div>
+                                        <span style="font-weight: bold; min-width: 50px; text-align: right;">${data.count} (${data.percentage}%)</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Questions ouvertes - Liste des réponses
+        let openQuestionsHtml = '';
+        if (data.openQuestions && Object.keys(data.openQuestions).length > 0) {
+            openQuestionsHtml = `
+                <div class="response-item" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; border: none; margin-bottom: 20px;">
+                    <h3 style="margin: 0 0 15px 0;">💬 Questions ouvertes - Réponses</h3>
+                </div>
+            `;
+
+            Object.entries(data.openQuestions).forEach(([questionKey, questionData]) => {
+                openQuestionsHtml += `
+                    <div class="response-item">
+                        <h4 style="color: #fa709a; margin-bottom: 15px;">${questionData.question}</h4>
+                        <div style="margin-bottom: 15px; font-size: 0.9rem; color: #666;">
+                            ${questionData.responsesList.length} réponse${questionData.responsesList.length > 1 ? 's' : ''}
+                        </div>
+                        <div class="open-responses">
+                            ${questionData.responsesList.map((responseItem, index) => `
+                                <div class="open-response-item" style="margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-left: 3px solid #fa709a; border-radius: 0 5px 5px 0;">
+                                    <div class="response-text" style="margin-bottom: 8px; font-style: italic;">
+                                        "${responseItem.answer}"
+                                    </div>
+                                    <div class="response-meta" style="font-size: 0.8rem; color: #666;">
+                                        Répondant #${responseItem.respondentId} - ${responseItem.genre}, ${responseItem.csp}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Affichage final
+        let finalHtml = summaryHtml;
+        
+        if (closedQuestionsHtml) {
+            finalHtml += closedQuestionsHtml;
+        }
+        
+        if (openQuestionsHtml) {
+            finalHtml += openQuestionsHtml;
+        }
+        
+        // Si pas de questions détaillées, afficher un message
+        if (!closedQuestionsHtml && !openQuestionsHtml) {
+            finalHtml += `
+                <div class="response-item">
+                    <h4>📋 Données disponibles</h4>
+                    <p>Les statistiques de base sont disponibles. Les questions détaillées du questionnaire peuvent être analysées en chargeant un fichier Excel avec plus de colonnes de données.</p>
+                </div>
+            `;
+        }
+
+        container.innerHTML = finalHtml;
+    }
+
+    calculatePercentages(answers, total) {
+        const percentages = {};
+        
+        Object.entries(answers).forEach(([answer, count]) => {
+            percentages[answer] = {
+                count: count,
+                percentage: Math.round((count / total) * 100)
+            };
+        });
+        
+        return percentages;
     }
 
     renderDetailedQuestions(response) {
@@ -755,17 +933,20 @@ class SurveyAnalyzer {
         
         const primaryColor = [79, 172, 254];
         const secondaryColor = [240, 147, 251];
+        const successColor = [67, 233, 123];
+        const warningColor = [250, 112, 154];
         const textColor = [51, 51, 51];
         
         let yPosition = 20;
         
+        // En-tête
         doc.setFillColor(...primaryColor);
         doc.rect(0, 0, 210, 40, 'F');
         
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(20);
         doc.setFont('helvetica', 'bold');
-        doc.text('Rapport d\'enquête satisfaction', 105, 20, { align: 'center' });
+        doc.text('Rapport statistique d\'enquête', 105, 20, { align: 'center' });
         
         doc.setFontSize(14);
         doc.setFont('helvetica', 'normal');
@@ -773,14 +954,9 @@ class SurveyAnalyzer {
         
         yPosition = 60;
         
-        doc.setTextColor(...textColor);
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Informations générales', 20, yPosition);
-        
-        yPosition += 15;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
+        // Informations générales
+        this.addPDFSection(doc, 'Informations générales', yPosition, primaryColor, textColor);
+        yPosition += 20;
         
         const generalInfo = [
             `Établissement: ${etablissement}`,
@@ -790,40 +966,148 @@ class SurveyAnalyzer {
             `Date du rapport: ${new Date().toLocaleDateString('fr-FR')}`
         ];
         
-        generalInfo.forEach(info => {
-            doc.text(info, 20, yPosition);
-            yPosition += 8;
-        });
-        
-        yPosition += 10;
-        
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Répartition de la satisfaction', 20, yPosition);
-        
+        yPosition = this.addPDFList(doc, generalInfo, yPosition, textColor);
         yPosition += 15;
-        doc.setFontSize(12);
+        
+        // Section questions fermées
+        if (data.closedQuestions && Object.keys(data.closedQuestions).length > 0) {
+            yPosition = this.checkPageBreak(doc, yPosition, 60);
+            this.addPDFSection(doc, 'Questions fermées - Statistiques', yPosition, successColor, textColor);
+            yPosition += 20;
+            
+            Object.entries(data.closedQuestions).forEach(([questionKey, questionData]) => {
+                yPosition = this.checkPageBreak(doc, yPosition, 50);
+                
+                // Titre de la question
+                doc.setTextColor(...textColor);
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                const questionLines = doc.splitTextToSize(questionData.question, 170);
+                questionLines.forEach(line => {
+                    doc.text(line, 20, yPosition);
+                    yPosition += 6;
+                });
+                
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'italic');
+                doc.text(`${questionData.totalResponses} réponse${questionData.totalResponses > 1 ? 's' : ''}`, 20, yPosition);
+                yPosition += 10;
+                
+                // Statistiques
+                const percentages = this.calculatePercentages(questionData.answers, questionData.totalResponses);
+                Object.entries(percentages).forEach(([answer, data]) => {
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(10);
+                    doc.text(`${answer}: ${data.count} (${data.percentage}%)`, 25, yPosition);
+                    yPosition += 6;
+                });
+                
+                yPosition += 8;
+            });
+        }
+        
+        // Section questions ouvertes
+        if (data.openQuestions && Object.keys(data.openQuestions).length > 0) {
+            yPosition = this.checkPageBreak(doc, yPosition, 60);
+            this.addPDFSection(doc, 'Questions ouvertes - Réponses', yPosition, warningColor, textColor);
+            yPosition += 20;
+            
+            Object.entries(data.openQuestions).forEach(([questionKey, questionData]) => {
+                yPosition = this.checkPageBreak(doc, yPosition, 40);
+                
+                // Titre de la question
+                doc.setTextColor(...textColor);
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                const questionLines = doc.splitTextToSize(questionData.question, 170);
+                questionLines.forEach(line => {
+                    doc.text(line, 20, yPosition);
+                    yPosition += 6;
+                });
+                
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'italic');
+                doc.text(`${questionData.responsesList.length} réponse${questionData.responsesList.length > 1 ? 's' : ''}`, 20, yPosition);
+                yPosition += 10;
+                
+                // Réponses
+                questionData.responsesList.forEach((responseItem, index) => {
+                    yPosition = this.checkPageBreak(doc, yPosition, 25);
+                    
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(9);
+                    doc.text(`${index + 1}. ${responseItem.genre}, ${responseItem.csp}:`, 25, yPosition);
+                    yPosition += 6;
+                    
+                    const responseLines = doc.splitTextToSize(`"${responseItem.answer}"`, 160);
+                    responseLines.forEach(line => {
+                        doc.setFont('helvetica', 'italic');
+                        doc.text(line, 30, yPosition);
+                        yPosition += 5;
+                    });
+                    yPosition += 3;
+                });
+                
+                yPosition += 10;
+            });
+        }
+        
+        // Pied de page
+        this.addPDFFooter(doc);
+        
+        const fileName = `rapport_statistiques_${etablissement.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+        doc.save(fileName);
+    }
+
+    addPDFSection(doc, title, yPosition, color, textColor) {
+        doc.setFillColor(...color);
+        doc.rect(15, yPosition - 5, 180, 15, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, 20, yPosition + 5);
+        
+        return yPosition + 15;
+    }
+
+    addPDFList(doc, items, yPosition, textColor, indent = false) {
+        doc.setTextColor(...textColor);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         
-        Object.entries(data.satisfaction).forEach(([level, count]) => {
-            const percentage = Math.round((count / data.totalReponses) * 100);
-            doc.text(`${level}: ${count} réponse${count > 1 ? 's' : ''} (${percentage}%)`, 20, yPosition);
-            yPosition += 8;
+        const xPosition = indent ? 25 : 20;
+        
+        items.forEach(item => {
+            if (yPosition > 280) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            doc.text(item, xPosition, yPosition);
+            yPosition += 6;
         });
         
-        yPosition += 10;
-        
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Profil des répondants', 20, yPosition);
-        
-        yPosition += 15;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
-        
-        doc.setFont('helvetica', 'bold');
-        doc.text('Genre:', 20, yPosition);
-        yPosition += 8;
+        return yPosition;
+    }
+
+    checkPageBreak(doc, yPosition, requiredSpace) {
+        if (yPosition + requiredSpace > 280) {
+            doc.addPage();
+            return 20;
+        }
+        return yPosition;
+    }
+
+    addPDFFooter(doc) {
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text(`Page ${i} sur ${pageCount}`, 105, 290, { align: 'center' });
+            doc.text('Rapport statistique généré automatiquement', 105, 295, { align: 'center' });
+        }
+    }yPosition += 8;
         doc.setFont('helvetica', 'normal');
         
         Object.entries(data.genre).forEach(([genre, count]) => {
