@@ -1,875 +1,954 @@
-// ================================
-// APPLICATION CLASS
-// ================================
-class ReportGenerator {
-  constructor() {
-    this.charts = [];
-    this.currentData = null;
-    this.init();
-  }
+// script.js - Version corrigée finale
 
-  init() {
-    this.setupFileUpload();
-    this.setupEventListeners();
-  }
-
-  setupFileUpload() {
-    const fileUploadArea = document.getElementById('fileUploadArea');
-    const fileInput = document.getElementById('fileInput');
-
-    // Click to select file
-    fileUploadArea.addEventListener('click', () => {
-      fileInput.click();
-    });
-
-    // File selection
-    fileInput.addEventListener('change', (e) => {
-      this.handleFileSelect(e.target.files[0]);
-    });
-
-    // Drag and drop
-    fileUploadArea.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      fileUploadArea.classList.add('dragover');
-    });
-
-    fileUploadArea.addEventListener('dragleave', () => {
-      fileUploadArea.classList.remove('dragover');
-    });
-
-    fileUploadArea.addEventListener('drop', (e) => {
-      e.preventDefault();
-      fileUploadArea.classList.remove('dragover');
-      const file = e.dataTransfer.files[0];
-      this.handleFileSelect(file);
-    });
-  }
-
-  setupEventListeners() {
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case 'u': // Ctrl+U - Upload file
-            e.preventDefault();
-            document.getElementById('fileInput').click();
-            break;
-          case 'Enter': // Ctrl+Enter - Convert data
-            e.preventDefault();
-            this.convertData();
-            break;
-          case 'g': // Ctrl+G - Generate chart
-            e.preventDefault();
-            this.generateChart();
-            break;
-          case 'p': // Ctrl+P - Generate PDF
-            e.preventDefault();
-            this.generatePdfReport();
-            break;
-        }
-      }
-    });
-  }
-
-  async handleFileSelect(file) {
-    if (!file) return;
-
-    const validTypes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-      'text/csv'
-    ];
-
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
-      this.showNotification('Format de fichier non supporté. Utilisez .xlsx, .xls ou .csv', 'error');
-      return;
+class SurveyAnalyzer {
+    constructor() {
+        this.surveyData = {};
+        this.rawData = [];
+        this.currentEtablissement = null;
+        this.initializeEventListeners();
     }
 
-    try {
-      this.showLoading(true);
-      const data = await this.readExcelFile(file);
-      document.getElementById('rawExcel').value = data;
-      this.convertData();
-      this.showNotification('Fichier importé avec succès!', 'success');
-    } catch (error) {
-      console.error('Erreur lors de la lecture du fichier:', error);
-      this.showNotification('Erreur lors de la lecture du fichier', 'error');
-    } finally {
-      this.showLoading(false);
-    }
-  }
+    initializeEventListeners() {
+        const fileInput = document.getElementById('file-input');
+        const selectFileBtn = document.getElementById('select-file-btn');
+        const uploadArea = document.getElementById('upload-area');
+        const processFileBtn = document.getElementById('process-file-btn');
+        const newFileBtn = document.getElementById('new-file-btn');
+        const retryBtn = document.getElementById('retry-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const modal = document.getElementById('details-modal');
+        const closeModal = document.getElementById('close-modal');
+        const exportPdfBtn = document.getElementById('export-pdf-btn');
 
-  async readExcelFile(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-          
-          // Convert to text format
-          const textData = jsonData
-            .filter(row => row.length >= 2 && row[0] && row[1])
-            .map(row => `${row[0]}\t${row[1]}`)
-            .join('\n');
-          
-          resolve(textData);
-        } catch (error) {
-          reject(error);
-        }
-      };
-      
-      reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
-      reader.readAsArrayBuffer(file);
-    });
-  }
-
-  convertData() {
-    const input = document.getElementById("rawExcel").value;
-    if (!input.trim()) {
-      this.showNotification('Aucune donnée à convertir', 'warning');
-      return;
-    }
-
-    const lines = input.trim().split(/\r?\n/);
-    const output = ["Établissements\tDécompte"];
-    const regex = /(.+?)\s+([0-9]+(?:[,\.][0-9]+)?)\s*%?$/;
-
-    for (let line of lines) {
-      line = line.replace(/;/g, "\t");
-      const match = line.match(regex);
-      
-      if (match) {
-        const label = match[1].trim();
-        const value = match[2].replace(",", ".");
-        output.push(`${label}\t${value}`);
-      } else {
-        const parts = line.split('\t');
-        if (parts.length >= 2) {
-          const label = parts[0].trim();
-          const value = parts[1].replace(",", ".").trim();
-          if (!isNaN(parseFloat(value))) {
-            output.push(`${label}\t${value}`);
-          }
-        }
-      }
-    }
-
-    document.getElementById("excelData").value = output.join("\n");
-    this.updateResultsTable();
-    this.showNotification('Données converties avec succès!', 'success');
-  }
-
-  parseData(raw) {
-    const rows = raw.trim().split("\n");
-    const headers = rows[0].split("\t");
-    const labels = [];
-    const data = [];
-
-    for (let i = 1; i < rows.length; i++) {
-      const cols = rows[i].split("\t");
-      if (cols.length >= 2) {
-        const label = cols[0];
-        const value = parseFloat(cols[1].replace(",", "."));
-        if (!isNaN(value) && value > 0) {
-          labels.push(label);
-          data.push(value);
-        }
-      }
-    }
-
-    return { labels, data, label: headers[1] };
-  }
-
-  updateResultsTable() {
-    const rawData = document.getElementById("excelData").value;
-    if (!rawData.trim()) return;
-
-    const { labels, data } = this.parseData(rawData);
-    const total = data.reduce((sum, val) => sum + val, 0);
-
-    const tableContainer = document.getElementById("resultsTableContainer");
-    const tableBody = document.querySelector("#resultsTable tbody");
-    
-    tableBody.innerHTML = '';
-
-    labels.forEach((label, index) => {
-      const value = data[index];
-      const percentage = total > 0 ? (value / total * 100).toFixed(1) : 0;
-      const row = tableBody.insertRow();
-      row.insertCell(0).textContent = label;
-      row.insertCell(1).textContent = value;
-      row.insertCell(2).textContent = `${percentage}%`;
-    });
-
-    tableContainer.style.display = 'block';
-    tableContainer.classList.add('fade-in');
-  }
-
-  generateChart() {
-    const rawData = document.getElementById("excelData").value;
-    if (!rawData.trim()) {
-      this.showNotification("Veuillez d'abord convertir les données", 'warning');
-      return;
-    }
-
-    const type = document.getElementById("chartType").value;
-    const { labels, data, label } = this.parseData(rawData);
-
-    if (labels.length === 0) {
-      this.showNotification("Aucune donnée valide trouvée", 'error');
-      return;
-    }
-
-    this.createChart(type, labels, data, label);
-    this.showNotification('Graphique ajouté avec succès!', 'success');
-  }
-
-  createChart(type, labels, data, dataLabel) {
-    const chartsArea = document.getElementById("chartsArea");
-    
-    // Remove placeholder if it exists
-    const placeholder = chartsArea.querySelector('.text-center');
-    if (placeholder) {
-      placeholder.remove();
-    }
-
-    const total = data.reduce((sum, val) => sum + val, 0);
-    const chartId = `chart_${Date.now()}`;
-
-    // Create chart container
-    const chartContainer = document.createElement("div");
-    chartContainer.className = "chart-container fade-in";
-    chartContainer.dataset.chartId = chartId;
-
-    const chartHeader = document.createElement("div");
-    chartHeader.className = "chart-header";
-    chartHeader.innerHTML = `
-      <h3 class="chart-title">
-        ${this.getChartIcon(type)} ${this.getChartTypeLabel(type)} - ${dataLabel}
-      </h3>
-      <button class="btn btn-danger" data-chart-id="${chartId}">
-        <i class="fas fa-times"></i>
-      </button>
-    `;
-
-    // Add event listener to delete button
-    const deleteBtn = chartHeader.querySelector('.btn-danger');
-    deleteBtn.addEventListener('click', () => this.removeChart(chartId));
-
-    const chartContent = document.createElement("div");
-    chartContent.className = "chart-content";
-    
-    const canvas = document.createElement("canvas");
-    chartContent.appendChild(canvas);
-    
-    chartContainer.appendChild(chartHeader);
-    chartContainer.appendChild(chartContent);
-    chartsArea.appendChild(chartContainer);
-
-    // Chart configuration
-    const config = {
-      type: type,
-      data: {
-        labels: labels,
-        datasets: [{
-          label: dataLabel,
-          data: data,
-          backgroundColor: this.getColors(data.length),
-          borderColor: this.getColors(data.length, true),
-          borderWidth: 2,
-          tension: type === 'line' ? 0.4 : 0
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          datalabels: {
-            color: '#fff',
-            anchor: type === 'pie' || type === 'doughnut' ? 'end' : 'end',
-            align: type === 'pie' || type === 'doughnut' ? 'end' : 'top',
-            formatter: (value) => {
-              const percent = (value / total * 100).toFixed(1);
-              return `${value} (${percent}%)`;
-            },
-            font: {
-              weight: 'bold',
-              size: 12
-            },
-            textShadowBlur: 5,
-            textShadowColor: 'rgba(0, 0, 0, 0.5)'
-          },
-          legend: {
-            labels: {
-              color: '#374151',
-              font: {
-                size: 12
-              }
-            }
-          },
-          title: {
-            display: true,
-            text: `Distribution des ${dataLabel} par Établissement`,
-            color: '#1f2937',
-            font: {
-              size: 16,
-              weight: 'bold'
-            }
-          }
-        },
-        scales: this.getScaleConfig(type)
-      },
-      plugins: [ChartDataLabels]
-    };
-
-    const chart = new Chart(canvas, config);
-    this.charts.push({ 
-      chart, 
-      container: chartContainer, 
-      type, 
-      title: `${this.getChartTypeLabel(type)} - ${dataLabel}`,
-      id: chartId
-    });
-  }
-
-  getChartIcon(type) {
-    const icons = {
-      bar: '📊',
-      line: '📈',
-      pie: '🥧',
-      doughnut: '🍩',
-      radar: '🎯'
-    };
-    return icons[type] || '📊';
-  }
-
-  getChartTypeLabel(type) {
-    const labels = {
-      bar: 'Graphique en Barres',
-      line: 'Graphique Linéaire',
-      pie: 'Camembert',
-      doughnut: 'Graphique en Anneau',
-      radar: 'Graphique Radar'
-    };
-    return labels[type] || 'Graphique';
-  }
-
-  getColors(count, border = false) {
-    const colors = [
-      border ? '#ef4444' : 'rgba(239, 68, 68, 0.8)',
-      border ? '#3b82f6' : 'rgba(59, 130, 246, 0.8)',
-      border ? '#10b981' : 'rgba(16, 185, 129, 0.8)',
-      border ? '#f59e0b' : 'rgba(245, 158, 11, 0.8)',
-      border ? '#8b5cf6' : 'rgba(139, 92, 246, 0.8)',
-      border ? '#06b6d4' : 'rgba(6, 182, 212, 0.8)',
-      border ? '#84cc16' : 'rgba(132, 204, 22, 0.8)',
-      border ? '#f97316' : 'rgba(249, 115, 22, 0.8)',
-      border ? '#ec4899' : 'rgba(236, 72, 153, 0.8)',
-      border ? '#6366f1' : 'rgba(99, 102, 241, 0.8)'
-    ];
-    return colors.slice(0, count);
-  }
-
-  getScaleConfig(type) {
-    if (type === 'pie' || type === 'doughnut' || type === 'radar') {
-      return {};
-    }
-    
-    return {
-      y: {
-        beginAtZero: true,
-        ticks: { 
-          color: '#6b7280',
-          font: { size: 11 }
-        },
-        grid: { 
-          color: 'rgba(229, 231, 235, 0.5)',
-          borderColor: '#e5e7eb'
-        }
-      },
-      x: {
-        ticks: { 
-          color: '#6b7280',
-          font: { size: 11 }
-        },
-        grid: { 
-          color: 'rgba(229, 231, 235, 0.5)',
-          borderColor: '#e5e7eb'
-        }
-      }
-    };
-  }
-
-  removeChart(chartId) {
-    const chartContainer = document.querySelector(`[data-chart-id="${chartId}"]`);
-    if (chartContainer) {
-      chartContainer.remove();
-      this.charts = this.charts.filter(chart => chart.id !== chartId);
-      
-      // Show placeholder if no charts remain
-      if (this.charts.length === 0) {
-        this.showChartsPlaceholder();
-      }
-      
-      this.showNotification('Graphique supprimé', 'success');
-    }
-  }
-
-  clearAllCharts() {
-    if (this.charts.length === 0) {
-      this.showNotification('Aucun graphique à supprimer', 'warning');
-      return;
-    }
-
-    if (confirm('Êtes-vous sûr de vouloir supprimer tous les graphiques ?')) {
-      this.charts.forEach(chart => chart.chart.destroy());
-      this.charts = [];
-      
-      const chartsArea = document.getElementById("chartsArea");
-      chartsArea.innerHTML = '';
-      this.showChartsPlaceholder();
-      
-      this.showNotification('Tous les graphiques ont été supprimés', 'success');
-    }
-  }
-
-  showChartsPlaceholder() {
-    const chartsArea = document.getElementById("chartsArea");
-    chartsArea.innerHTML = `
-      <div class="text-center" style="padding: 3rem; color: var(--gray-500);">
-        <i class="fas fa-chart-pie" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-        <p>Aucun graphique généré pour le moment</p>
-        <p style="font-size: 0.875rem;">Importez vos données et cliquez sur "Ajouter un graphique"</p>
-      </div>
-    `;
-  }
-
-  clearData() {
-    if (confirm('Êtes-vous sûr de vouloir effacer toutes les données ?')) {
-      document.getElementById('rawExcel').value = '';
-      document.getElementById('excelData').value = '';
-      document.getElementById('resultsTableContainer').style.display = 'none';
-      this.showNotification('Données effacées', 'success');
-    }
-  }
-
-  async generatePdfReport() {
-    if (this.charts.length === 0) {
-      this.showNotification('Aucun graphique à inclure dans le rapport', 'warning');
-      return;
-    }
-
-    try {
-      this.showLoading(true);
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const margin = 15;
-      let yPos = margin;
-      const pageHeight = doc.internal.pageSize.height;
-
-      // Title Page
-      this.addTitlePage(doc, margin);
-      doc.addPage();
-      yPos = margin;
-
-      // Results Table
-      await this.addResultsTable(doc, margin, yPos);
-      
-      // Charts
-      await this.addChartsToPDF(doc, margin);
-
-      // Save PDF
-      const fileName = `Rapport_Enquete_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
-      
-      this.showNotification('Rapport PDF généré avec succès!', 'success');
-    } catch (error) {
-      console.error('Erreur lors de la génération du PDF:', error);
-      this.showNotification('Erreur lors de la génération du PDF', 'error');
-    } finally {
-      this.showLoading(false);
-    }
-  }
-
-  addTitlePage(doc, margin) {
-    // Header banner
-    doc.setFillColor(59, 130, 246); // Primary blue
-    doc.rect(0, 0, doc.internal.pageSize.width, 50, 'F');
-    
-    // Title
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(24);
-    doc.setTextColor(255, 255, 255);
-    doc.text("Rapport d'Enquête par Établissement", doc.internal.pageSize.width / 2, 25, { align: 'center' });
-    
-    // Subtitle
-    doc.setFontSize(14);
-    doc.text("Analyse des données et visualisations", doc.internal.pageSize.width / 2, 35, { align: 'center' });
-    
-    // Date and details
-    doc.setFontSize(12);
-    doc.setTextColor(107, 114, 128);
-    const currentDate = new Date().toLocaleDateString('fr-FR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    doc.text(`Date du rapport : ${currentDate}`, doc.internal.pageSize.width / 2, 70, { align: 'center' });
-    doc.text(`Nombre de graphiques : ${this.charts.length}`, doc.internal.pageSize.width / 2, 80, { align: 'center' });
-    
-    // Footer
-    doc.setFontSize(10);
-    doc.text("Généré par le Générateur de Rapports d'Enquête", doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 20, { align: 'center' });
-  }
-
-  async addResultsTable(doc, margin, startY) {
-    const tableBody = document.querySelector("#resultsTable tbody");
-    const tableRows = Array.from(tableBody.querySelectorAll("tr"));
-
-    if (tableRows.length === 0) return startY;
-
-    doc.setFontSize(18);
-    doc.setTextColor(31, 41, 55);
-    doc.text("Résultats Détaillés par Établissement", margin, startY);
-
-    const tableData = [['Établissements', 'Valeur', 'Pourcentage']];
-    tableRows.forEach(row => {
-      const rowCells = Array.from(row.querySelectorAll("td"));
-      tableData.push(rowCells.map(cell => cell.textContent));
-    });
-
-    doc.autoTable({
-      startY: startY + 10,
-      head: [tableData[0]],
-      body: tableData.slice(1),
-      theme: 'striped',
-      headStyles: { 
-        fillColor: [59, 130, 246], 
-        textColor: 255, 
-        fontStyle: 'bold',
-        fontSize: 12
-      },
-      styles: { 
-        fontSize: 10, 
-        cellPadding: 4, 
-        textColor: [31, 41, 55] 
-      },
-      alternateRowStyles: { fillColor: [249, 250, 251] },
-      margin: { horizontal: margin },
-      didDrawPage: function (data) {
-        // Page footer
-        doc.setFontSize(10);
-        doc.setTextColor(107, 114, 128);
-        const str = `Page ${doc.internal.getNumberOfPages()}`;
-        doc.text(str, doc.internal.pageSize.width - margin, doc.internal.pageSize.height - 10, { align: 'right' });
-      }
-    });
-
-    return doc.autoTable.previous.finalY + 20;
-  }
-
-  async addChartsToPDF(doc, margin) {
-    doc.setFontSize(18);
-    doc.setTextColor(31, 41, 55);
-    doc.text("Visualisations Graphiques", margin, margin);
-
-    let yPos = margin + 15;
-    const pageHeight = doc.internal.pageSize.height;
-
-    for (const [index, chartObj] of this.charts.entries()) {
-      const canvas = chartObj.chart.canvas;
-      
-      try {
-        const imgData = await html2canvas(canvas, { 
-          backgroundColor: '#ffffff',
-          scale: 2
-        }).then(canvas => canvas.toDataURL('image/png'));
+        selectFileBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => this.handleFileSelect(e.target.files[0]));
+        uploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
+        uploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+        uploadArea.addEventListener('drop', (e) => this.handleDrop(e));
+        processFileBtn.addEventListener('click', () => this.processFile());
+        newFileBtn.addEventListener('click', () => this.resetToUpload());
+        retryBtn.addEventListener('click', () => this.resetToUpload());
+        exportBtn.addEventListener('click', () => this.exportResults());
+        closeModal.addEventListener('click', () => this.closeModal());
+        exportPdfBtn.addEventListener('click', () => this.exportCurrentEtablissementToPDF());
         
-        const imgWidth = 170;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeModal();
+            }
+        });
+    }
 
-        // Check if new page is needed
-        if (yPos + imgHeight + 30 > pageHeight) {
-          doc.addPage();
-          yPos = margin;
+    handleDragOver(e) {
+        e.preventDefault();
+        document.getElementById('upload-area').classList.add('dragover');
+    }
+
+    handleDragLeave(e) {
+        e.preventDefault();
+        document.getElementById('upload-area').classList.remove('dragover');
+    }
+
+    handleDrop(e) {
+        e.preventDefault();
+        document.getElementById('upload-area').classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            this.handleFileSelect(files[0]);
+        }
+    }
+
+    handleFileSelect(file) {
+        if (!file) return;
+
+        const validTypes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel'
+        ];
+        
+        if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
+            this.showError('Veuillez sélectionner un fichier Excel (.xlsx ou .xls)');
+            return;
         }
 
-        // Chart title
+        document.getElementById('file-name').textContent = `📁 ${file.name} (${this.formatFileSize(file.size)})`;
+        document.getElementById('file-info').style.display = 'block';
+        this.selectedFile = file;
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    async processFile() {
+        if (!this.selectedFile) return;
+
+        this.showLoading('Lecture du fichier Excel...');
+
+        try {
+            const data = await this.readExcelFile(this.selectedFile);
+            this.showLoading('Analyse des données...');
+            
+            setTimeout(() => {
+                this.analyzeData(data);
+                this.renderResults();
+            }, 500);
+            
+        } catch (error) {
+            console.error('Erreur lors du traitement:', error);
+            this.showError(`Erreur lors du traitement du fichier: ${error.message}`);
+        }
+    }
+
+    readExcelFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    resolve(jsonData);
+                } catch (error) {
+                    reject(new Error('Impossible de lire le fichier Excel'));
+                }
+            };
+            
+            reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    analyzeData(excelData) {
+        if (!excelData || excelData.length === 0) {
+            throw new Error('Le fichier Excel est vide');
+        }
+
+        const headers = excelData[0];
+        const rows = excelData.slice(1);
+        const columnMapping = this.identifyColumns(headers);
+        const responses = [];
+        
+        rows.forEach((row, index) => {
+            if (this.isValidResponse(row)) {
+                const response = this.extractResponseData(row, columnMapping, headers);
+                if (response.etablissement !== "Non identifié") {
+                    responses.push({
+                        ...response,
+                        id: index + 1
+                    });
+                }
+            }
+        });
+
+        if (responses.length === 0) {
+            throw new Error('Aucune réponse valide trouvée dans le fichier');
+        }
+
+        this.rawData = responses;
+        this.calculateStatistics();
+    }
+
+    identifyColumns(headers) {
+        const mapping = {};
+        
+        headers.forEach((header, index) => {
+            const headerLower = header ? header.toString().toLowerCase() : '';
+            
+            if (headerLower.includes('établissement') || headerLower.includes('selectionnez')) {
+                mapping.etablissement = index;
+            }
+            if (headerLower.includes('satisfait') && headerLower.includes('accueil')) {
+                mapping.satisfaction = index;
+            }
+            if (headerLower.includes('vous êtes')) {
+                mapping.genre = index;
+            }
+            if (headerLower.includes('votre âge')) {
+                mapping.age = index;
+            }
+            if (headerLower.includes('socio-professionnelle')) {
+                mapping.csp = index;
+            }
+            if (headerLower.includes('date de soumission')) {
+                mapping.date = index;
+            }
+        });
+        
+        return mapping;
+    }
+
+    isValidResponse(row) {
+        return row && row.length > 0 && row.some(cell => cell && cell.toString().trim() !== '');
+    }
+
+    extractResponseData(row, columnMapping, headers) {
+        const response = {
+            etablissement: "Non identifié",
+            gestionnaire: "Non spécifié",
+            satisfaction: "Non spécifié",
+            genre: "Non spécifié",
+            age: "Non spécifié",
+            csp: "Non spécifié",
+            date: null,
+            additionalData: {}
+        };
+
+        if (columnMapping.etablissement !== undefined) {
+            const etablissementValue = row[columnMapping.etablissement];
+            if (etablissementValue) {
+                response.etablissement = this.normalizeEtablissementName(etablissementValue.toString());
+                response.gestionnaire = this.getGestionnaire(etablissementValue.toString());
+            }
+        }
+
+        if (columnMapping.satisfaction !== undefined) {
+            const satisfactionValue = row[columnMapping.satisfaction];
+            if (satisfactionValue) {
+                response.satisfaction = this.normalizeSatisfaction(satisfactionValue.toString());
+            }
+        }
+
+        if (columnMapping.genre !== undefined) {
+            const genreValue = row[columnMapping.genre];
+            if (genreValue) {
+                response.genre = genreValue.toString().includes('femme') ? 'Femme' : 
+                              genreValue.toString().includes('homme') ? 'Homme' : 'Non spécifié';
+            }
+        }
+
+        if (columnMapping.csp !== undefined) {
+            const cspValue = row[columnMapping.csp];
+            if (cspValue) {
+                response.csp = this.normalizeCSP(cspValue.toString());
+            }
+        }
+
+        if (columnMapping.date !== undefined) {
+            const dateValue = row[columnMapping.date];
+            if (dateValue) {
+                response.date = this.parseDate(dateValue);
+            }
+        }
+
+        headers.forEach((header, index) => {
+            if (row[index] && row[index].toString().trim() !== '' && row[index] !== 'N/A') {
+                const headerKey = this.normalizeHeaderKey(header);
+                response.additionalData[headerKey] = row[index];
+            }
+        });
+
+        return response;
+    }
+
+    normalizeHeaderKey(header) {
+        if (!header) return 'unknown';
+        return header.toString()
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '');
+    }
+
+    normalizeEtablissementName(name) {
+        const nameLower = name.toLowerCase();
+        
+        if (nameLower.includes('canardière')) return 'Crèche Canardière';
+        if (nameLower.includes('montagne-verte') || nameLower.includes('montagne verte')) return 'MPE Montagne-verte';
+        if (nameLower.includes('bon pasteur')) return 'Crèche Bon Pasteur';
+        if (nameLower.includes('fossé') || nameLower.includes('treize')) return 'Crèche Fossé des Treize';
+        if (nameLower.includes('aasbr')) return 'Crèche AASBR';
+        if (nameLower.includes('ages')) return 'Crèche AGES';
+        if (nameLower.includes('agf')) return 'Crèche AGF';
+        if (nameLower.includes('alef')) return 'Crèche ALEF';
+        if (nameLower.includes('fondation') || nameLower.includes('auteuil')) return 'Crèche Fondation d\'Auteuil';
+        if (nameLower.includes('apedi')) return 'Crèche APEDI';
+        
+        return name;
+    }
+
+    getGestionnaire(etablissementName) {
+        const nameLower = etablissementName.toLowerCase();
+        
+        if (nameLower.includes('ville')) return 'Ville de Strasbourg';
+        if (nameLower.includes('alef')) return 'ALEF';
+        if (nameLower.includes('aasbr')) return 'AASBR';
+        if (nameLower.includes('ages')) return 'AGES';
+        if (nameLower.includes('agf')) return 'AGF';
+        if (nameLower.includes('fondation') || nameLower.includes('auteuil')) return 'Fondation d\'Auteuil';
+        if (nameLower.includes('fossé') || nameLower.includes('treize')) return 'Fossé des Treize';
+        if (nameLower.includes('apedi')) return 'APEDI';
+        
+        return 'Ville de Strasbourg';
+    }
+
+    normalizeSatisfaction(satisfaction) {
+        const satLower = satisfaction.toLowerCase();
+        
+        if (satLower.includes('très satisfait')) return 'Très satisfait';
+        if (satLower.includes('plutôt satisfait')) return 'Plutôt satisfait';
+        if (satLower.includes('peu satisfait')) return 'Peu satisfait';
+        if (satLower.includes('pas satisfait') || satLower.includes('non satisfait')) return 'Pas satisfait';
+        
+        return satisfaction;
+    }
+
+    normalizeCSP(csp) {
+        const cspLower = csp.toLowerCase();
+        
+        if (cspLower.includes('cadre')) return 'Cadres';
+        if (cspLower.includes('employé')) return 'Employés';
+        if (cspLower.includes('ouvrier')) return 'Ouvriers';
+        if (cspLower.includes('profession intermédiaire')) return 'Professions intermédiaires';
+        if (cspLower.includes('artisan') || cspLower.includes('commerçant')) return 'Artisans/Commerçants';
+        if (cspLower.includes('retraité')) return 'Retraités';
+        if (cspLower.includes('sans activité') || cspLower.includes('chômage')) return 'Sans activité';
+        
+        return csp;
+    }
+
+    parseDate(dateValue) {
+        if (!dateValue) return null;
+        
+        try {
+            if (typeof dateValue === 'number') {
+                const excelEpoch = new Date(1900, 0, 1);
+                const days = dateValue - 2;
+                return new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+            }
+            return new Date(dateValue);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    calculateStatistics() {
+        const groupedByEtablissement = {};
+        
+        this.rawData.forEach(response => {
+            if (!groupedByEtablissement[response.etablissement]) {
+                groupedByEtablissement[response.etablissement] = [];
+            }
+            groupedByEtablissement[response.etablissement].push(response);
+        });
+
+        this.surveyData = {};
+        
+        Object.entries(groupedByEtablissement).forEach(([etablissement, responses]) => {
+            const satisfactionCounts = {};
+            const gestionnaireCounts = {};
+            const genreCounts = {};
+            const cspCounts = {};
+            
+            responses.forEach(response => {
+                satisfactionCounts[response.satisfaction] = (satisfactionCounts[response.satisfaction] || 0) + 1;
+                gestionnaireCounts[response.gestionnaire] = (gestionnaireCounts[response.gestionnaire] || 0) + 1;
+                genreCounts[response.genre] = (genreCounts[response.genre] || 0) + 1;
+                cspCounts[response.csp] = (cspCounts[response.csp] || 0) + 1;
+            });
+
+            this.surveyData[etablissement] = {
+                totalReponses: responses.length,
+                satisfaction: satisfactionCounts,
+                gestionnaire: gestionnaireCounts,
+                genre: genreCounts,
+                csp: cspCounts,
+                responses: responses
+            };
+        });
+    }
+
+    calculateSatisfactionPercentage(satisfactionData) {
+        const total = Object.values(satisfactionData).reduce((a, b) => a + b, 0);
+        const satisfied = (satisfactionData["Très satisfait"] || 0) + (satisfactionData["Plutôt satisfait"] || 0);
+        return total > 0 ? Math.round((satisfied / total) * 100) : 0;
+    }
+
+    getGestionnaireClass(gestionnaire) {
+        const gestionnaireMap = {
+            'Ville de Strasbourg': 'ville',
+            'ALEF': 'alef',
+            'AASBR': 'aasbr',
+            'AGES': 'ages',
+            'AGF': 'agf',
+            'Fondation d\'Auteuil': 'fondation',
+            'Fossé des Treize': 'fosse',
+            'APEDI': 'apedi'
+        };
+        
+        return gestionnaireMap[gestionnaire] || 'ville';
+    }
+
+    renderResults() {
+        this.renderSummary();
+        this.renderEtablissements();
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('file-upload-section').style.display = 'none';
+        document.getElementById('error-message').style.display = 'none';
+        document.getElementById('results').style.display = 'block';
+        
+        setTimeout(() => {
+            document.querySelectorAll('.satisfaction-fill').forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => bar.style.width = width, 100);
+            });
+        }, 100);
+    }
+
+    renderSummary() {
+        const totalResponses = Object.values(this.surveyData)
+            .reduce((sum, data) => sum + data.totalReponses, 0);
+        
+        const totalEtablissements = Object.keys(this.surveyData).length;
+        
+        let totalSatisfied = 0;
+        let totalResponsesForSatisfaction = 0;
+        
+        Object.values(this.surveyData).forEach(data => {
+            const satisfied = (data.satisfaction["Très satisfait"] || 0) + (data.satisfaction["Plutôt satisfait"] || 0);
+            totalSatisfied += satisfied;
+            totalResponsesForSatisfaction += data.totalReponses;
+        });
+        
+        const globalSatisfaction = totalResponsesForSatisfaction > 0 ? 
+            Math.round((totalSatisfied / totalResponsesForSatisfaction) * 100) : 0;
+
+        const dates = this.rawData.map(r => r.date).filter(d => d);
+        let dateRange = '-';
+        
+        if (dates.length > 0) {
+            const minDate = new Date(Math.min(...dates));
+            const maxDate = new Date(Math.max(...dates));
+            
+            if (minDate.getTime() === maxDate.getTime()) {
+                dateRange = minDate.toLocaleDateString('fr-FR');
+            } else {
+                dateRange = `${minDate.toLocaleDateString('fr-FR')} - ${maxDate.toLocaleDateString('fr-FR')}`;
+            }
+        }
+
+        document.getElementById('total-responses').textContent = totalResponses;
+        document.getElementById('total-etablissements').textContent = totalEtablissements;
+        document.getElementById('satisfaction-globale').textContent = globalSatisfaction + '%';
+        document.getElementById('date-enquete').textContent = dateRange;
+    }
+
+    renderEtablissements() {
+        const container = document.getElementById('etablissements-container');
+        container.innerHTML = '';
+
+        Object.entries(this.surveyData).forEach(([name, data]) => {
+            const satisfactionPercent = this.calculateSatisfactionPercentage(data.satisfaction);
+            const gestionnaireName = Object.keys(data.gestionnaire)[0];
+            const gestionnaireClass = this.getGestionnaireClass(gestionnaireName);
+
+            const card = document.createElement('div');
+            card.className = 'etablissement-card';
+            
+            card.innerHTML = `
+                <div class="card-header ${gestionnaireClass}">
+                    <h3>${name}</h3>
+                    <span class="gestionnaire-badge">${gestionnaireName}</span>
+                </div>
+                <div class="card-content">
+                    <div class="metric">
+                        <div class="metric-label">📊 Satisfaction globale</div>
+                        <div class="metric-value">${satisfactionPercent}%</div>
+                        <div class="satisfaction-bar">
+                            <div class="satisfaction-fill" style="width: ${satisfactionPercent}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric">
+                        <div class="metric-label">📋 Nombre de réponses</div>
+                        <div class="metric-value">${data.totalReponses}</div>
+                    </div>
+
+                    <div class="details-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">👤 Genre des répondants</div>
+                            <div class="detail-value">
+                                ${Object.entries(data.genre)
+                                    .filter(([genre]) => genre !== 'Non spécifié')
+                                    .map(([genre, count]) => `${genre}: ${count}`)
+                                    .join('<br>') || 'Non spécifié'}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">💼 Catégories socio-prof.</div>
+                            <div class="detail-value">
+                                ${Object.entries(data.csp)
+                                    .filter(([csp]) => csp !== 'Non spécifié')
+                                    .map(([csp, count]) => `${csp}: ${count}`)
+                                    .join('<br>') || 'Non spécifié'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="metric">
+                        <div class="metric-label">📈 Détail satisfaction</div>
+                        <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
+                            ${Object.entries(data.satisfaction)
+                                .map(([level, count]) => `${level}: ${count} réponse${count > 1 ? 's' : ''}`)
+                                .join(' • ')}
+                        </div>
+                    </div>
+
+                    <div class="card-actions">
+                        <button class="card-action-btn" onclick="surveyAnalyzer.showDetails('${name}')">
+                            📋 Détails
+                        </button>
+                        <button class="card-action-btn export" onclick="surveyAnalyzer.exportEtablissementToPDF('${name}')">
+                            📄 PDF
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(card);
+        });
+    }
+
+    showLoading(message) {
+        document.getElementById('loading').querySelector('p').textContent = message;
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('file-upload-section').style.display = 'none';
+        document.getElementById('error-message').style.display = 'none';
+        document.getElementById('results').style.display = 'none';
+    }
+
+    showError(message) {
+        document.getElementById('error-text').textContent = message;
+        document.getElementById('error-message').style.display = 'block';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('file-upload-section').style.display = 'none';
+        document.getElementById('results').style.display = 'none';
+    }
+
+    resetToUpload() {
+        this.selectedFile = null;
+        this.surveyData = {};
+        this.rawData = [];
+        
+        document.getElementById('file-input').value = '';
+        document.getElementById('file-info').style.display = 'none';
+        document.getElementById('file-upload-section').style.display = 'block';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error-message').style.display = 'none';
+        document.getElementById('results').style.display = 'none';
+    }
+
+    exportResults() {
+        if (Object.keys(this.surveyData).length === 0) return;
+
+        const exportData = {
+            summary: {
+                totalResponses: Object.values(this.surveyData).reduce((sum, data) => sum + data.totalReponses, 0),
+                totalEtablissements: Object.keys(this.surveyData).length,
+                exportDate: new Date().toISOString()
+            },
+            etablissements: this.surveyData,
+            rawResponses: this.rawData
+        };
+
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(dataBlob);
+        link.download = `resultats_enquete_creches_${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+    }
+
+    showDetails(etablissementName) {
+        this.currentEtablissement = etablissementName;
+        const data = this.surveyData[etablissementName];
+        
+        if (!data) return;
+
+        document.getElementById('modal-title').textContent = `Détails - ${etablissementName}`;
+        document.getElementById('details-modal').style.display = 'block';
+        document.getElementById('modal-loading').style.display = 'block';
+        document.getElementById('modal-content').innerHTML = '';
+        
+        setTimeout(() => {
+            this.renderDetailedResponses(etablissementName, data);
+            document.getElementById('modal-loading').style.display = 'none';
+        }, 500);
+    }
+
+    renderDetailedResponses(etablissementName, data) {
+        const container = document.getElementById('modal-content');
+        
+        const summaryHtml = `
+            <div class="response-item" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none;">
+                <h3 style="margin: 0 0 15px 0;">📊 Résumé pour ${etablissementName}</h3>
+                <div class="response-header" style="border-bottom: 1px solid rgba(255,255,255,0.3);">
+                    <div class="response-field">
+                        <div class="response-field-label" style="color: rgba(255,255,255,0.8);">Total réponses</div>
+                        <div class="response-field-value" style="color: white;">${data.totalReponses}</div>
+                    </div>
+                    <div class="response-field">
+                        <div class="response-field-label" style="color: rgba(255,255,255,0.8);">Gestionnaire</div>
+                        <div class="response-field-value" style="color: white;">${Object.keys(data.gestionnaire)[0]}</div>
+                    </div>
+                    <div class="response-field">
+                        <div class="response-field-label" style="color: rgba(255,255,255,0.8);">Satisfaction</div>
+                        <div class="response-field-value" style="color: white;">${this.calculateSatisfactionPercentage(data.satisfaction)}%</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const responsesHtml = data.responses.map((response, index) => {
+            const satisfactionClass = response.satisfaction.toLowerCase().replace(/[^a-z]/g, '-');
+            
+            return `
+                <div class="response-item">
+                    <div class="response-header">
+                        <div class="response-field">
+                            <div class="response-field-label">Réponse</div>
+                            <div class="response-field-value">#${index + 1}</div>
+                        </div>
+                        <div class="response-field">
+                            <div class="response-field-label">Genre</div>
+                            <div class="response-field-value">${response.genre}</div>
+                        </div>
+                        <div class="response-field">
+                            <div class="response-field-label">CSP</div>
+                            <div class="response-field-value">${response.csp}</div>
+                        </div>
+                        <div class="response-field">
+                            <div class="response-field-label">Satisfaction</div>
+                            <div class="response-field-value satisfaction ${satisfactionClass}">${response.satisfaction}</div>
+                        </div>
+                        ${response.date ? `
+                        <div class="response-field">
+                            <div class="response-field-label">Date</div>
+                            <div class="response-field-value">${response.date.toLocaleDateString('fr-FR')}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ${this.renderDetailedQuestions(response)}
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = summaryHtml + responsesHtml;
+    }
+
+    renderDetailedQuestions(response) {
+        const questions = this.extractQuestionsFromResponse(response);
+        
+        if (questions.length === 0) {
+            return `
+                <div class="response-details">
+                    <h4>📝 Réponses détaillées</h4>
+                    <div class="question-item">
+                        <div class="question-label">Données disponibles</div>
+                        <div class="question-answer">
+                            Cette réponse contient les informations de base (établissement, satisfaction, profil du répondant).
+                            Les données détaillées du questionnaire original peuvent être ajoutées ici.
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="response-details">
+                <h4>📝 Réponses détaillées</h4>
+                <div class="response-questions">
+                    ${questions.map(q => `
+                        <div class="question-item">
+                            <div class="question-label">${q.question}</div>
+                            <div class="question-answer ${q.highlighted ? 'highlighted' : ''}">${q.answer}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    extractQuestionsFromResponse(response) {
+        const questions = [];
+        
+        questions.push({
+            question: "Êtes-vous satisfait(e) de l'accueil de votre enfant à la crèche ?",
+            answer: response.satisfaction,
+            highlighted: response.satisfaction.includes('satisfait')
+        });
+
+        questions.push({
+            question: "Votre profil",
+            answer: `${response.genre}, ${response.csp}`,
+            highlighted: false
+        });
+
+        if (response.additionalData) {
+            Object.entries(response.additionalData).forEach(([key, value]) => {
+                if (value && value.toString().trim() !== '' && value !== 'N/A') {
+                    questions.push({
+                        question: this.formatQuestionFromKey(key),
+                        answer: value.toString(),
+                        highlighted: this.isImportantAnswer(key, value)
+                    });
+                }
+            });
+        }
+
+        return questions;
+    }
+
+    formatQuestionFromKey(key) {
+        const questionMap = {
+            'besoins': 'L\'accueil prend-il en compte les besoins de votre enfant ?',
+            'confiance': 'Une relation de confiance s\'est-elle construite avec l\'équipe ?',
+            'communication': 'La communication avec l\'équipe est-elle satisfaisante ?',
+            'accompagnement': 'L\'accompagnement éducatif vous convient-il ?',
+            'environnement': 'L\'environnement de la crèche est-il adapté ?',
+            'remarques': 'Remarques et suggestions complémentaires'
+        };
+        
+        return questionMap[key] || key.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+    }
+
+    isImportantAnswer(key, value) {
+        const importantKeys = ['remarques', 'suggestions', 'problemes'];
+        const negativeWords = ['non', 'pas', 'peu', 'difficile', 'problème'];
+        
+        return importantKeys.some(k => key.toLowerCase().includes(k)) ||
+               negativeWords.some(w => value.toString().toLowerCase().includes(w));
+    }
+
+    closeModal() {
+        document.getElementById('details-modal').style.display = 'none';
+        this.currentEtablissement = null;
+    }
+
+    exportEtablissementToPDF(etablissementName) {
+        this.currentEtablissement = etablissementName;
+        this.exportCurrentEtablissementToPDF();
+    }
+
+    exportCurrentEtablissementToPDF() {
+        if (!this.currentEtablissement || !this.surveyData[this.currentEtablissement]) {
+            console.error('Aucun établissement sélectionné pour l\'export');
+            return;
+        }
+
+        const etablissement = this.currentEtablissement;
+        const data = this.surveyData[etablissement];
+        const gestionnaire = Object.keys(data.gestionnaire)[0];
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const primaryColor = [79, 172, 254];
+        const secondaryColor = [240, 147, 251];
+        const textColor = [51, 51, 51];
+        
+        let yPosition = 20;
+        
+        doc.setFillColor(...primaryColor);
+        doc.rect(0, 0, 210, 40, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(20);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Rapport d\'enquête satisfaction', 105, 20, { align: 'center' });
+        
         doc.setFontSize(14);
-        doc.setTextColor(31, 41, 55);
-        doc.text(`${index + 1}. ${chartObj.title}`, margin, yPos);
-        yPos += 10;
-
-        // Add chart image
-        doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
-        yPos += imgHeight + 20;
-
-      } catch (error) {
-        console.error('Erreur lors de l\'ajout du graphique au PDF:', error);
-        // Add error message instead of chart
+        doc.setFont('helvetica', 'normal');
+        doc.text(`${etablissement}`, 105, 30, { align: 'center' });
+        
+        yPosition = 60;
+        
+        doc.setTextColor(...textColor);
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Informations générales', 20, yPosition);
+        
+        yPosition += 15;
         doc.setFontSize(12);
-        doc.setTextColor(239, 68, 68);
-        doc.text(`Erreur lors du rendu du graphique: ${chartObj.title}`, margin, yPos);
-        yPos += 20;
-      }
-    }
-  }
-
-  showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 1rem 1.5rem;
-      background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
-      color: white;
-      border-radius: 0.75rem;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-      z-index: 1000;
-      font-weight: 500;
-      max-width: 400px;
-      transform: translateX(400px);
-      transition: transform 0.3s ease;
-    `;
-
-    const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
-    notification.innerHTML = `${icon} ${message}`;
-
-    document.body.appendChild(notification);
-
-    // Animate in
-    setTimeout(() => {
-      notification.style.transform = 'translateX(0)';
-    }, 100);
-
-    // Auto remove
-    setTimeout(() => {
-      notification.style.transform = 'translateX(400px)';
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
+        doc.setFont('helvetica', 'normal');
+        
+        const generalInfo = [
+            `Établissement: ${etablissement}`,
+            `Gestionnaire: ${gestionnaire}`,
+            `Nombre de réponses: ${data.totalReponses}`,
+            `Satisfaction globale: ${this.calculateSatisfactionPercentage(data.satisfaction)}%`,
+            `Date du rapport: ${new Date().toLocaleDateString('fr-FR')}`
+        ];
+        
+        generalInfo.forEach(info => {
+            doc.text(info, 20, yPosition);
+            yPosition += 8;
+        });
+        
+        yPosition += 10;
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Répartition de la satisfaction', 20, yPosition);
+        
+        yPosition += 15;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        
+        Object.entries(data.satisfaction).forEach(([level, count]) => {
+            const percentage = Math.round((count / data.totalReponses) * 100);
+            doc.text(`${level}: ${count} réponse${count > 1 ? 's' : ''} (${percentage}%)`, 20, yPosition);
+            yPosition += 8;
+        });
+        
+        yPosition += 10;
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Profil des répondants', 20, yPosition);
+        
+        yPosition += 15;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text('Genre:', 20, yPosition);
+        yPosition += 8;
+        doc.setFont('helvetica', 'normal');
+        
+        Object.entries(data.genre).forEach(([genre, count]) => {
+            if (genre !== 'Non spécifié') {
+                doc.text(`  ${genre}: ${count}`, 20, yPosition);
+                yPosition += 6;
+            }
+        });
+        
+        yPosition += 5;
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text('Catégories socio-professionnelles:', 20, yPosition);
+        yPosition += 8;
+        doc.setFont('helvetica', 'normal');
+        
+        Object.entries(data.csp).forEach(([csp, count]) => {
+            if (csp !== 'Non spécifié') {
+                doc.text(`  ${csp}: ${count}`, 20, yPosition);
+                yPosition += 6;
+            }
+        });
+        
+        if (yPosition > 250) {
+            doc.addPage();
+            yPosition = 20;
+        } else {
+            yPosition += 15;
         }
-      }, 300);
-    }, 4000);
-  }
-
-  showLoading(show) {
-    const elements = document.querySelectorAll('.btn, .form-input, .form-textarea, .form-select');
-    elements.forEach(el => {
-      if (show) {
-        el.classList.add('loading');
-      } else {
-        el.classList.remove('loading');
-      }
-    });
-
-    // Show/hide loading spinner
-    let spinner = document.getElementById('loadingSpinner');
-    if (show && !spinner) {
-      spinner = document.createElement('div');
-      spinner.id = 'loadingSpinner';
-      spinner.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(255, 255, 255, 0.95);
-        padding: 2rem;
-        border-radius: 1rem;
-        box-shadow: 0 20px 25px rgba(0,0,0,0.1);
-        z-index: 1001;
-        text-align: center;
-      `;
-      spinner.innerHTML = `
-        <div class="pulse" style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
-        <p style="margin: 0; color: #6b7280;">Traitement en cours...</p>
-      `;
-      document.body.appendChild(spinner);
-    } else if (!show && spinner) {
-      spinner.remove();
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Réponses détaillées', 20, yPosition);
+        
+        yPosition += 15;
+        
+        data.responses.forEach((response, index) => {
+            if (yPosition > 240) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            
+            doc.setFillColor(...secondaryColor);
+            doc.rect(15, yPosition - 5, 180, 12, 'F');
+            
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Réponse #${index + 1}`, 20, yPosition + 3);
+            
+            yPosition += 15;
+            
+            doc.setTextColor(...textColor);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            
+            const responseDetails = [
+                `Genre: ${response.genre}`,
+                `CSP: ${response.csp}`,
+                `Satisfaction: ${response.satisfaction}`,
+                response.date ? `Date: ${response.date.toLocaleDateString('fr-FR')}` : null
+            ].filter(Boolean);
+            
+            responseDetails.forEach(detail => {
+                doc.text(detail, 20, yPosition);
+                yPosition += 6;
+            });
+            
+            if (response.additionalData && Object.keys(response.additionalData).length > 0) {
+                yPosition += 3;
+                doc.setFont('helvetica', 'bold');
+                doc.text('Réponses détaillées:', 20, yPosition);
+                yPosition += 6;
+                doc.setFont('helvetica', 'normal');
+                
+                Object.entries(response.additionalData).forEach(([key, value]) => {
+                    if (value && value.toString().trim() !== '' && value !== 'N/A') {
+                        const question = this.formatQuestionFromKey(key);
+                        const answer = value.toString();
+                        
+                        const maxWidth = 170;
+                        const questionLines = doc.splitTextToSize(`Q: ${question}`, maxWidth);
+                        const answerLines = doc.splitTextToSize(`R: ${answer}`, maxWidth);
+                        
+                        questionLines.forEach(line => {
+                            if (yPosition > 280) {
+                                doc.addPage();
+                                yPosition = 20;
+                            }
+                            doc.text(line, 25, yPosition);
+                            yPosition += 5;
+                        });
+                        
+                        answerLines.forEach(line => {
+                            if (yPosition > 280) {
+                                doc.addPage();
+                                yPosition = 20;
+                            }
+                            doc.text(line, 25, yPosition);
+                            yPosition += 5;
+                        });
+                        
+                        yPosition += 3;
+                    }
+                });
+            }
+            
+            yPosition += 8;
+        });
+        
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text(`Page ${i} sur ${pageCount}`, 105, 290, { align: 'center' });
+            doc.text('Rapport généré automatiquement - Enquête satisfaction crèches', 105, 295, { align: 'center' });
+        }
+        
+        const fileName = `rapport_${etablissement.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+        doc.save(fileName);
     }
-  }
-
-  // Additional utility methods
-  exportToCSV() {
-    const tableBody = document.querySelector("#resultsTable tbody");
-    const tableRows = Array.from(tableBody.querySelectorAll("tr"));
-    
-    if (tableRows.length === 0) {
-      this.showNotification('Aucune donnée à exporter', 'warning');
-      return;
-    }
-
-    const csvData = [['Établissements', 'Valeur', 'Pourcentage']];
-    tableRows.forEach(row => {
-      const rowCells = Array.from(row.querySelectorAll("td"));
-      csvData.push(rowCells.map(cell => cell.textContent));
-    });
-
-    const csvContent = csvData.map(row => row.join(';')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `donnees_enquete_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      this.showNotification('Données exportées en CSV', 'success');
-    }
-  }
-
-  saveAsTemplate() {
-    const rawData = document.getElementById("rawExcel").value;
-    if (!rawData.trim()) {
-      this.showNotification('Aucune donnée à sauvegarder', 'warning');
-      return;
-    }
-
-    const template = {
-      data: rawData,
-      timestamp: new Date().toISOString(),
-      charts: this.charts.map(chart => ({
-        type: chart.type,
-        title: chart.title
-      }))
-    };
-
-    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `template_rapport_${new Date().toISOString().split('T')[0]}.json`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      this.showNotification('Template sauvegardé', 'success');
-    }
-  }
-
-  async loadTemplate(file) {
-    try {
-      const text = await file.text();
-      const template = JSON.parse(text);
-      
-      document.getElementById('rawExcel').value = template.data;
-      this.convertData();
-      
-      // Recreate charts
-      template.charts.forEach(chartInfo => {
-        document.getElementById('chartType').value = chartInfo.type;
-        this.generateChart();
-      });
-      
-      this.showNotification('Template chargé avec succès', 'success');
-    } catch (error) {
-      console.error('Erreur lors du chargement du template:', error);
-      this.showNotification('Erreur lors du chargement du template', 'error');
-    }
-  }
 }
 
-// ================================
-// APPLICATION INITIALIZATION
-// ================================
+let surveyAnalyzer;
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize the app
-  app = new ReportGenerator();
-  
-  console.log('Application de génération de rapports initialisée');
-  
-  // Add additional features buttons
-  addFeatureButtons();
+    surveyAnalyzer = new SurveyAnalyzer();
 });
-
-// Global functions for compatibility
-window.app = null;
-
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('Application de génération de rapports initialisée');
-  
-  // Add additional features buttons
-  addFeatureButtons();
-});
-
-function addFeatureButtons() {
-  // Add export CSV button to results table
-  const tableContainer = document.getElementById('resultsTableContainer');
-  if (tableContainer) {
-    const exportBtn = document.createElement('button');
-    exportBtn.className = 'btn btn-secondary';
-    exportBtn.innerHTML = '<i class="fas fa-download"></i> Exporter CSV';
-    exportBtn.addEventListener('click', () => app.exportToCSV());
-    exportBtn.style.marginTop = '1rem';
-    tableContainer.appendChild(exportBtn);
-  }
-
-  // Add template functionality
-  const cardBody = document.querySelector('.card-body');
-  if (cardBody) {
-    const templateSection = document.createElement('div');
-    templateSection.className = 'btn-group';
-    templateSection.style.marginTop = '1rem';
-    templateSection.innerHTML = `
-      <button class="btn btn-secondary" id="saveTemplateBtn">
-        <i class="fas fa-save"></i> Sauvegarder Template
-      </button>
-      <input type="file" id="templateInput" accept=".json" style="display: none;">
-      <button class="btn btn-secondary" id="loadTemplateBtn">
-        <i class="fas fa-upload"></i> Charger Template
-      </button>
-    `;
-    cardBody.appendChild(templateSection);
-
-    // Add event listeners for template functionality
-    document.getElementById('saveTemplateBtn').addEventListener('click', () => app.saveAsTemplate());
-    document.getElementById('loadTemplateBtn').addEventListener('click', () => {
-      document.getElementById('templateInput').click();
-    });
-
-    // Add template file handler
-    document.getElementById('templateInput').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        app.loadTemplate(file);
-      }
-    });
-  }
-}
-
-// Enhanced error handling
-window.addEventListener('error', (event) => {
-  console.error('Erreur globale:', event.error);
-  if (window.app) {
-    window.app.showNotification('Une erreur inattendue s\'est produite', 'error');
-  }
-});
-
-// Service Worker registration for offline functionality (optional)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('SW registered: ', registration);
-      })
-      .catch((registrationError) => {
-        console.log('SW registration failed: ', registrationError);
-      });
-  });
-}
