@@ -1,425 +1,109 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Générateur de Rapports d'Enquête</title>
-  
-  <!-- Meta tags pour SEO et partage -->
-  <meta name="description" content="Application moderne pour générer des rapports d'enquête à partir de données Excel avec visualisations graphiques et export PDF.">
-  <meta name="keywords" content="rapport, enquête, excel, graphique, PDF, analyse données">
-  <meta name="author" content="Générateur de Rapports">
-  
-  <!-- Open Graph pour réseaux sociaux -->
-  <meta property="og:title" content="Générateur de Rapports d'Enquête">
-  <meta property="og:description" content="Créez des rapports professionnels à partir de vos données Excel">
-  <meta property="og:type" content="website">
-  
-  <!-- External Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.autotable.min.js"></script>
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  
-  <!-- Fonts et icônes -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-  
-  <!-- CSS personnalisé -->
-  <link rel="stylesheet" href="styles.css">
-  
-  <!-- PWA Support -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#3b82f6">
-  
-  <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📊%3C/text%3E%3C/svg%3E">
-  
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Résultats de l'enquête satisfaction - Crèches de Strasbourg</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <header class="header">
-      <h1><i class="fas fa-chart-bar"></i> Générateur de Rapports d'Enquête</h1>
-      <p class="subtitle">Analysez vos données Excel et créez des rapports professionnels</p>
-      
-      <!-- Guide d'utilisation rapide -->
-      <div class="quick-help" style="margin-top: 1.5rem;">
-        <button class="btn btn-secondary" id="helpBtn">
-          <i class="fas fa-question-circle"></i> Guide rapide
-        </button>
-      </div>
-    </header>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Résultats de l'enquête satisfaction</h1>
+            <p>Crèches de Strasbourg - Mai 2025</p>
+        </div>
 
-    <!-- Help Modal -->
-    <div id="helpModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2><i class="fas fa-info-circle"></i> Guide d'utilisation</h2>
-          <button class="btn btn-secondary" id="closeHelpBtn">
-            <i class="fas fa-times"></i>
-          </button>
+        <div class="content">
+            <!-- Section d'import de fichier -->
+            <div id="file-upload-section" class="file-upload-section">
+                <div class="upload-container">
+                    <h2>📁 Importer le fichier de données</h2>
+                    <p>Sélectionnez le fichier CSV (.csv) contenant les réponses du questionnaire</p>
+                    
+                    <div class="upload-area" id="upload-area">
+                        <div class="upload-icon">📁</div>
+                        <p>Glissez-déposez votre fichier CSV ici ou cliquez pour sélectionner</p>
+                        <input type="file" id="file-input" accept=".csv" style="display: none;">
+                        <button id="select-file-btn" class="upload-btn">Sélectionner un fichier</button>
+                    </div>
+                    
+                    <div id="file-info" class="file-info" style="display: none;">
+                        <p id="file-name"></p>
+                        <button id="process-file-btn" class="process-btn">Analyser le fichier</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Traitement des données en cours...</p>
+            </div>
+
+            <div id="error-message" class="error-message" style="display: none;">
+                <h3>❌ Erreur lors du traitement</h3>
+                <p id="error-text"></p>
+                <button id="retry-btn" class="retry-btn">Réessayer</button>
+            </div>
+
+            <div id="results" style="display: none;">
+                <div class="summary">
+                    <h2>📈 Vue d'ensemble</h2>
+                    <div class="summary-stats">
+                        <div class="stat-item">
+                            <span class="stat-number" id="total-responses">0</span>
+                            <span>Réponses totales</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="total-etablissements">0</span>
+                            <span>Établissements</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="satisfaction-globale">0%</span>
+                            <span>Satisfaction globale</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="date-enquete">-</span>
+                            <span>Période d'enquête</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="etablissements-grid" id="etablissements-container">
+                    <!-- Les cartes d'établissements seront générées ici -->
+                </div>
+
+                <div class="actions">
+                    <button id="new-file-btn" class="action-btn">📁 Charger un nouveau fichier</button>
+                    <button id="export-btn" class="action-btn">📊 Exporter les résultats</button>
+                </div>
+            </div>
         </div>
-        <div class="modal-body">
-          <div class="help-section">
-            <h3>🚀 Démarrage rapide</h3>
-            <ol>
-              <li>Importez votre fichier Excel (.xlsx, .xls, .csv) ou collez vos données</li>
-              <li>Cliquez sur "Convertir les données"</li>
-              <li>Choisissez le type de graphique et cliquez "Ajouter un graphique"</li>
-              <li>Générez votre rapport PDF</li>
-            </ol>
-          </div>
-          
-          <div class="help-section">
-            <h3>⌨️ Raccourcis clavier</h3>
-            <ul>
-              <li><kbd>Ctrl</kbd> + <kbd>U</kbd> : Ouvrir fichier</li>
-              <li><kbd>Ctrl</kbd> + <kbd>Enter</kbd> : Convertir données</li>
-              <li><kbd>Ctrl</kbd> + <kbd>G</kbd> : Générer graphique</li>
-              <li><kbd>Ctrl</kbd> + <kbd>P</kbd> : Générer PDF</li>
-            </ul>
-          </div>
-          
-          <div class="help-section">
-            <h3>📁 Formats supportés</h3>
-            <ul>
-              <li>Excel (.xlsx, .xls)</li>
-              <li>CSV (.csv)</li>
-              <li>Données texte (tabulations, points-virgules)</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </div>
 
-    <!-- Step 1: Data Import -->
-    <div class="card">
-      <div class="card-header">
-        <h2>
-          <span class="step-indicator">1</span>
-          Importation des données
-        </h2>
-      </div>
-      <div class="card-body">
-        <!-- File Upload Area -->
-        <div class="file-upload-area" id="fileUploadArea">
-          <div class="file-upload-icon">
-            <i class="fas fa-cloud-upload-alt"></i>
-          </div>
-          <h3>Glissez-déposez votre fichier Excel ici</h3>
-          <p>ou cliquez pour sélectionner un fichier (.xlsx, .xls, .csv)</p>
-          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+    <!-- Modal pour les détails -->
+    <div id="details-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Détails des réponses</h2>
+                <button class="close" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-loading" class="modal-loading" style="display: none;">
+                    <div class="modal-spinner"></div>
+                    <p>Chargement des détails...</p>
+                </div>
+                <div id="modal-content">
+                    <!-- Le contenu détaillé sera inséré ici -->
+                </div>
+                <div class="modal-actions">
+                    <button id="export-pdf-btn" class="modal-action-btn">📄 Exporter en PDF</button>
+                </div>
+            </div>
         </div>
-
-        <!-- Manual Data Entry -->
-        <div class="form-group" style="margin-top: 2rem;">
-          <label class="form-label">
-            <i class="fas fa-edit"></i> Ou collez vos données manuellement
-          </label>
-          <textarea 
-            id="rawExcel" 
-            class="form-textarea" 
-            placeholder="Collez ici vos données Excel (avec tabulations, points-virgules, ou format brut)...
-Exemple:
-Établissement A	25
-Établissement B	18
-Établissement C	32"></textarea>
-        </div>
-
-        <div class="btn-group">
-          <button class="btn btn-primary" id="convertDataBtn">
-            <i class="fas fa-sync-alt"></i>
-            Convertir les données
-          </button>
-          <button class="btn btn-secondary" id="clearDataBtn">
-            <i class="fas fa-trash"></i>
-            Effacer
-          </button>
-        </div>
-      </div>
     </div>
 
-    <!-- Step 2: Data Preview -->
-    <div class="card">
-      <div class="card-header">
-        <h2>
-          <span class="step-indicator">2</span>
-          Prévisualisation et Configuration
-        </h2>
-      </div>
-      <div class="card-body">
-        <div class="form-group">
-          <label class="form-label">
-            <i class="fas fa-table"></i> Données formatées
-          </label>
-          <textarea id="excelData" class="form-textarea" readonly placeholder="Les données converties apparaîtront ici..."></textarea>
-        </div>
-
-        <div class="btn-group">
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label">
-              <i class="fas fa-chart-pie"></i> Type de graphique
-            </label>
-            <select id="chartType" class="form-select" style="width: auto;">
-              <option value="bar">📊 Barres</option>
-              <option value="line">📈 Lignes</option>
-              <option value="pie">🥧 Camembert</option>
-              <option value="doughnut">🍩 Anneau</option>
-              <option value="radar">🎯 Radar</option>
-            </select>
-          </div>
-          <button class="btn btn-success" id="generateChartBtn">
-            <i class="fas fa-plus"></i>
-            Ajouter un graphique
-          </button>
-        </div>
-
-        <!-- Results Table -->
-        <div class="table-container" id="resultsTableContainer" style="display: none;">
-          <div style="padding: 1rem; background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">
-            <h3 style="margin: 0; color: var(--gray-700);">
-              <i class="fas fa-table"></i> Résultats par Établissement
-            </h3>
-          </div>
-          <table class="table" id="resultsTable">
-            <thead>
-              <tr>
-                <th><i class="fas fa-building"></i> Établissements</th>
-                <th><i class="fas fa-calculator"></i> Valeur</th>
-                <th><i class="fas fa-percentage"></i> Pourcentage</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Step 3: Charts Display -->
-    <div class="card">
-      <div class="card-header">
-        <h2>
-          <span class="step-indicator">3</span>
-          Graphiques Générés
-        </h2>
-      </div>
-      <div class="card-body">
-        <div id="chartsArea">
-          <div class="text-center" style="padding: 3rem; color: var(--gray-500);">
-            <i class="fas fa-chart-pie" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-            <p>Aucun graphique généré pour le moment</p>
-            <p style="font-size: 0.875rem;">Importez vos données et cliquez sur "Ajouter un graphique"</p>
-          </div>
-        </div>
-
-        <div class="btn-group" style="margin-top: 2rem;">
-          <button class="btn btn-primary" id="generatePdfBtn">
-            <i class="fas fa-file-pdf"></i>
-            Générer le Rapport PDF
-          </button>
-          <button class="btn btn-secondary" id="clearAllChartsBtn">
-            <i class="fas fa-trash-alt"></i>
-            Supprimer tous les graphiques
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Footer -->
-  <footer style="text-align: center; padding: 2rem; color: var(--gray-500); font-size: 0.875rem;">
-    <p>
-      <i class="fas fa-code"></i> Application moderne de génération de rapports
-      | <i class="fas fa-chart-bar"></i> Powered by Chart.js
-      | <i class="fas fa-file-pdf"></i> PDF.js
-    </p>
-    <p>
-      Version 2.0 - 
-      <a href="#" id="helpLinkFooter" style="color: var(--primary-500); text-decoration: none;">
-        Aide & Documentation
-      </a>
-    </p>
-  </footer>
-
-  <!-- JavaScript personnalisé -->
-  <script src="script.js"></script>
-  
-  <!-- Additional functionality -->
-  <script>
-    // Initialize app variable
-    let app = null;
-
-    // Help modal functionality
-    function toggleHelp() {
-      const modal = document.getElementById('helpModal');
-      modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
-    }
-
-    // Initialize event listeners when DOM is loaded
-    document.addEventListener('DOMContentLoaded', () => {
-      // Set up event listeners for buttons
-      document.getElementById('convertDataBtn').addEventListener('click', () => app.convertData());
-      document.getElementById('clearDataBtn').addEventListener('click', () => app.clearData());
-      document.getElementById('generateChartBtn').addEventListener('click', () => app.generateChart());
-      document.getElementById('generatePdfBtn').addEventListener('click', () => app.generatePdfReport());
-      document.getElementById('clearAllChartsBtn').addEventListener('click', () => app.clearAllCharts());
-      document.getElementById('helpBtn').addEventListener('click', toggleHelp);
-      document.getElementById('closeHelpBtn').addEventListener('click', toggleHelp);
-      document.getElementById('helpLinkFooter').addEventListener('click', (e) => {
-        e.preventDefault();
-        toggleHelp();
-      });
-
-      console.log('Event listeners configurés');
-    });
-
-    // Close modal when clicking outside
-    window.onclick = function(event) {
-      const modal = document.getElementById('helpModal');
-      if (event.target === modal) {
-        modal.style.display = 'none';
-      }
-    }
-
-    // PWA installation prompt
-    let deferredPrompt;
-    
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      
-      // Show install button
-      const installBtn = document.createElement('button');
-      installBtn.className = 'btn btn-primary';
-      installBtn.innerHTML = '<i class="fas fa-download"></i> Installer l\'app';
-      installBtn.onclick = async () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          deferredPrompt = null;
-          installBtn.remove();
-        }
-      };
-      
-      document.querySelector('.header').appendChild(installBtn);
-    });
-
-    // Performance monitoring
-    window.addEventListener('load', () => {
-      const loadTime = performance.now();
-      console.log(`Application chargée en ${Math.round(loadTime)}ms`);
-      
-      // Analytics could be added here
-      if ('performance' in window && 'measure' in window.performance) {
-        performance.mark('app-loaded');
-      }
-    });
-
-    // Auto-save functionality
-    setInterval(() => {
-      const rawData = document.getElementById('rawExcel').value;
-      if (rawData.trim()) {
-        localStorage.setItem('app-backup-data', rawData);
-        localStorage.setItem('app-backup-timestamp', new Date().toISOString());
-      }
-    }, 30000); // Auto-save every 30 seconds
-
-      // Restore data on load
-      const backupData = localStorage.getItem('app-backup-data');
-      const backupTimestamp = localStorage.getItem('app-backup-timestamp');
-      
-      if (backupData && backupTimestamp) {
-        const timeDiff = new Date() - new Date(backupTimestamp);
-        const hoursDiff = timeDiff / (1000 * 60 * 60);
-        
-        if (hoursDiff < 24) { // Restore if less than 24 hours old
-          if (confirm('Des données sauvegardées automatiquement ont été trouvées. Voulez-vous les restaurer ?')) {
-            document.getElementById('rawExcel').value = backupData;
-            if (app) {
-              app.showNotification('Données restaurées depuis la sauvegarde automatique', 'success');
-            }
-          }
-        }
-      }
-  </script>
-  
-  <!-- CSS pour le modal -->
-  <style>
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .modal-content {
-      background-color: white;
-      border-radius: var(--border-radius);
-      box-shadow: var(--shadow-xl);
-      max-width: 600px;
-      width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-    
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1.5rem 2rem;
-      border-bottom: 1px solid var(--gray-200);
-    }
-    
-    .modal-header h2 {
-      margin: 0;
-      color: var(--gray-900);
-      font-size: 1.5rem;
-    }
-    
-    .modal-body {
-      padding: 2rem;
-    }
-    
-    .help-section {
-      margin-bottom: 2rem;
-    }
-    
-    .help-section h3 {
-      color: var(--primary-600);
-      margin-bottom: 1rem;
-      font-size: 1.25rem;
-    }
-    
-    .help-section ul, .help-section ol {
-      margin-left: 1.5rem;
-    }
-    
-    .help-section li {
-      margin-bottom: 0.5rem;
-    }
-    
-    kbd {
-      background: var(--gray-100);
-      border: 1px solid var(--gray-300);
-      border-radius: 4px;
-      padding: 2px 6px;
-      font-family: monospace;
-      font-size: 0.875rem;
-    }
-    
-    .quick-help {
-      animation: fadeIn 0.5s ease-out;
-    }
-  </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
