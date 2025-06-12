@@ -10,7 +10,7 @@
     <div class="container">
         <div class="header">
             <h1>📊 Résultats de l'enquête satisfaction</h1>
-            <p>Crèches de Strasbourg - Mai 2025</p>
+            <p>Crèches de Strasbourg - Analyse automatisée des enquêtes</p>
         </div>
 
         <div class="content">
@@ -18,12 +18,12 @@
             <div id="file-upload-section" class="file-upload-section">
                 <div class="upload-container">
                     <h2>📁 Importer le fichier de données</h2>
-                    <p>Sélectionnez le fichier CSV (.csv) contenant les réponses du questionnaire</p>
+                    <p>Sélectionnez le fichier Excel (.xlsx ou .xls) contenant les réponses du questionnaire</p>
                     
                     <div class="upload-area" id="upload-area">
                         <div class="upload-icon">📁</div>
-                        <p>Glissez-déposez votre fichier CSV ici ou cliquez pour sélectionner</p>
-                        <input type="file" id="file-input" accept=".csv" style="display: none;">
+                        <p>Glissez-déposez votre fichier Excel ici ou cliquez pour sélectionner</p>
+                        <input type="file" id="file-input" accept=".xlsx,.xls" style="display: none;">
                         <button id="select-file-btn" class="upload-btn">Sélectionner un fichier</button>
                     </div>
                     
@@ -34,18 +34,22 @@
                 </div>
             </div>
 
+            <!-- État de chargement -->
             <div id="loading" class="loading" style="display: none;">
                 <div class="spinner"></div>
                 <p>Traitement des données en cours...</p>
             </div>
 
+            <!-- Messages d'erreur -->
             <div id="error-message" class="error-message" style="display: none;">
                 <h3>❌ Erreur lors du traitement</h3>
                 <p id="error-text"></p>
                 <button id="retry-btn" class="retry-btn">Réessayer</button>
             </div>
 
+            <!-- Résultats -->
             <div id="results" style="display: none;">
+                <!-- Vue d'ensemble -->
                 <div class="summary">
                     <h2>📈 Vue d'ensemble</h2>
                     <div class="summary-stats">
@@ -68,10 +72,12 @@
                     </div>
                 </div>
 
+                <!-- Grille des établissements -->
                 <div class="etablissements-grid" id="etablissements-container">
                     <!-- Les cartes d'établissements seront générées ici -->
                 </div>
 
+                <!-- Actions globales -->
                 <div class="actions">
                     <button id="new-file-btn" class="action-btn">📁 Charger un nouveau fichier</button>
                     <button id="export-btn" class="action-btn">📊 Exporter les résultats</button>
@@ -102,8 +108,14 @@
         </div>
     </div>
 
+    <!-- Scripts externes -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="script.js"></script>
+    
+    <!-- Gestionnaire PDF amélioré -->
+    <script src="pdf-formatter.js"></script>
+    
+    <!-- Application principale -->
+    <script src="app.js"></script>
 </body>
 </html>
