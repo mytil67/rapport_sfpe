@@ -1,4 +1,4 @@
-// pdf-formatter.js - Version complète et corrigée
+// pdf-formatter.js - Version corrigée avec calcul de satisfaction et affichage multi-lignes
 
 class AdvancedPDFExporter {
     constructor() {
@@ -85,6 +85,84 @@ class AdvancedPDFExporter {
         return colorMap[niveau] || this.colors.primary;
     }
 
+    // METHODE AMELIOREE pour calculer la satisfaction avec normalisation des accents
+    calculateSatisfactionPercentageRobust(satisfactionData) {
+        console.log('=== CALCUL SATISFACTION PDF AVEC NORMALISATION ACCENTS ===');
+        console.log('Données brutes:', satisfactionData);
+        
+        if (!satisfactionData || typeof satisfactionData !== 'object') {
+            console.log('❌ Données de satisfaction invalides');
+            return 0;
+        }
+
+        // Fonction pour normaliser les accents
+        const normalizeAccents = (str) => {
+            return str
+                .toLowerCase()
+                .replace(/[àáâãäå]/g, 'a')
+                .replace(/[èéêë]/g, 'e')
+                .replace(/[ìíîï]/g, 'i')
+                .replace(/[òóôõö]/g, 'o')
+                .replace(/[ùúûü]/g, 'u')
+                .replace(/[ç]/g, 'c')
+                .replace(/[ñ]/g, 'n')
+                .replace(/[^a-z\s]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        };
+
+        // Nettoyer et normaliser les clés
+        const normalizedData = {};
+        Object.entries(satisfactionData).forEach(([key, value]) => {
+            if (key && value && typeof value === 'number') {
+                const cleanKey = key.toString().trim();
+                normalizedData[cleanKey] = value;
+            }
+        });
+        
+        console.log('Données normalisées:', normalizedData);
+        
+        // Compter les satisfaits en cherchant toutes les variantes possibles avec normalisation
+        let tresSatisfaitCount = 0;
+        let plutotSatisfaitCount = 0;
+        
+        // Recherche flexible par clés partielles avec normalisation des accents
+        Object.entries(normalizedData).forEach(([key, count]) => {
+            const keyNormalized = normalizeAccents(key);
+            console.log(`Analyse: "${key}" → "${keyNormalized}"`);
+            
+            if (keyNormalized.includes('tres') && keyNormalized.includes('satisfait')) {
+                tresSatisfaitCount += count;
+                console.log(`✅ Trouvé "Très satisfait": "${key}" = ${count}`);
+            } else if (keyNormalized.includes('plutot') && keyNormalized.includes('satisfait')) {
+                plutotSatisfaitCount += count;
+                console.log(`✅ Trouvé "Plutôt satisfait": "${key}" = ${count}`);
+            }
+        });
+
+        // Calculer le total en excluant "Non spécifié" et variantes avec normalisation
+        const totalValidResponses = Object.entries(normalizedData)
+            .filter(([key]) => {
+                const keyNormalized = normalizeAccents(key);
+                return !keyNormalized.includes('non') && !keyNormalized.includes('specifie') && 
+                       keyNormalized.trim() !== '';
+            })
+            .reduce((sum, [, count]) => sum + count, 0);
+
+        const totalSatisfiedCount = tresSatisfaitCount + plutotSatisfaitCount;
+        const satisfactionPercentage = totalValidResponses > 0 ? 
+            Math.round((totalSatisfiedCount / totalValidResponses) * 100) : 0;
+
+        console.log(`📊 Résultat final PDF:`);
+        console.log(`- Très satisfait: ${tresSatisfaitCount}`);
+        console.log(`- Plutôt satisfait: ${plutotSatisfaitCount}`);
+        console.log(`- Total satisfaits: ${totalSatisfiedCount}`);
+        console.log(`- Total réponses valides: ${totalValidResponses}`);
+        console.log(`- Pourcentage: ${satisfactionPercentage}%`);
+
+        return satisfactionPercentage;
+    }
+
     exportEtablissementToPDF(name, surveyData, analyzer) {
         if (!surveyData[name]) {
             console.error('Données non trouvées pour l\'établissement:', name);
@@ -107,9 +185,9 @@ class AdvancedPDFExporter {
         this.addStyledHeader(doc, name, gestionnaire);
         currentY = 55;
 
-        // Section résumé avec style interface
+        // Section résumé avec style interface (plus grande maintenant)
         currentY = this.addSummarySection(doc, currentY, name, gestionnaire, data, analyzer);
-        currentY += 10;
+        currentY += 15; // Plus d'espace après le résumé élargi
 
         // Questions avec formatage similaire à la vue détail
         const orderedQuestions = this.getOrderedQuestions(data);
@@ -177,13 +255,13 @@ class AdvancedPDFExporter {
     addSummarySection(doc, startY, name, gestionnaire, data, analyzer) {
         let y = startY + 5;
         
-        // Fond avec style similaire à la vue détail
+        // Fond avec style similaire à la vue détail - hauteur augmentée pour plus de contenu
         doc.setFillColor(...this.colors.background);
-        doc.roundedRect(this.margins.left, y, this.contentWidth, 40, 5, 5, 'F');
+        doc.roundedRect(this.margins.left, y, this.contentWidth, 85, 5, 5, 'F'); // Hauteur encore plus grande
         
         // Bordure gauche colorée
         doc.setFillColor(...this.colors.primary);
-        doc.rect(this.margins.left, y, 4, 40, 'F');
+        doc.rect(this.margins.left, y, 4, 85, 'F');
 
         // Titre de section SANS ÉMOJIS
         doc.setTextColor(...this.colors.text);
@@ -191,18 +269,20 @@ class AdvancedPDFExporter {
         doc.setFont('helvetica', 'bold');
         doc.text('VUE D\'ENSEMBLE', this.margins.left + 10, y + 10);
 
-        // Métriques en grille
+        // Première ligne de métriques
         y += 18;
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         
-        const satisfaction = analyzer.calculateSatisfactionPercentage(data.satisfaction);
+        // CALCUL ROBUSTE de la satisfaction 
+        const satisfaction = this.calculateSatisfactionPercentageRobust(data.satisfaction);
+        
         const satisfactionColor = satisfaction >= 80 ? this.colors.satisfaction.tresSatisfait :
                                  satisfaction >= 60 ? this.colors.satisfaction.plutotSatisfait :
                                  satisfaction >= 40 ? this.colors.satisfaction.peuSatisfait :
                                  this.colors.satisfaction.pasSatisfait;
 
-        const metrics = [
+        const topMetrics = [
             {
                 label: 'Reponses totales',
                 value: `${data.totalReponses}`,
@@ -221,7 +301,7 @@ class AdvancedPDFExporter {
         ];
 
         const metricWidth = (this.contentWidth - 20) / 3;
-        metrics.forEach((metric, index) => {
+        topMetrics.forEach((metric, index) => {
             const x = this.margins.left + 10 + (index * metricWidth);
             
             // Fond de métrique
@@ -241,7 +321,71 @@ class AdvancedPDFExporter {
             doc.text(metric.value, x + 3, y + 14);
         });
 
-        return y + 25;
+        // NOUVELLE SECTION : Genre et CSP sur plusieurs lignes
+        y += 25;
+        
+        // Préparer les données de genre (exclure "Non spécifié") - MULTI-LIGNES
+        const genreEntries = Object.entries(data.genre)
+            .filter(([g]) => g !== 'Non spécifié' && g.trim() !== '');
+        
+        // Préparer les données CSP avec pourcentages - MULTI-LIGNES  
+        const cspEntries = Object.entries(data.cspPercentages);
+
+        const bottomMetrics = [
+            {
+                label: 'Genre des repondants',
+                entries: genreEntries.map(([g, c]) => `${g}: ${c}`),
+                color: this.colors.text
+            },
+            {
+                label: 'Categories socio-prof.',
+                entries: cspEntries.map(([csp, pct]) => `${csp}: ${pct}%`),
+                color: this.colors.text
+            }
+        ];
+
+        const bottomMetricWidth = (this.contentWidth - 20) / 2;
+        bottomMetrics.forEach((metric, index) => {
+            const x = this.margins.left + 10 + (index * bottomMetricWidth);
+            
+            // Calculer la hauteur nécessaire en fonction du nombre de lignes
+            const maxLines = Math.max(metric.entries.length, 1);
+            const neededHeight = Math.max(35, 12 + (maxLines * 5)); // 5mm par ligne + marge
+            
+            // Fond de métrique avec hauteur dynamique
+            doc.setFillColor(255, 255, 255);
+            doc.roundedRect(x, y, bottomMetricWidth - 5, neededHeight, 3, 3, 'F');
+            
+            // Label
+            doc.setTextColor(...this.colors.textSecondary);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.text(metric.label, x + 3, y + 6);
+            
+            // Valeurs sur plusieurs lignes
+            doc.setTextColor(...metric.color);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            
+            // Afficher chaque entrée sur une ligne séparée
+            if (metric.entries.length > 0) {
+                metric.entries.forEach((entry, lineIndex) => {
+                    const lineY = y + 12 + (lineIndex * 5);
+                    // Limiter la largeur du texte pour éviter le débordement
+                    const maxWidth = bottomMetricWidth - 10;
+                    const textLines = doc.splitTextToSize(entry, maxWidth);
+                    
+                    // Afficher seulement la première ligne si trop long
+                    if (textLines.length > 0) {
+                        doc.text(textLines[0], x + 3, lineY);
+                    }
+                });
+            } else {
+                doc.text('Non specifie', x + 3, y + 12);
+            }
+        });
+
+        return y + 45; // Plus d'espace pour accommoder les données multi-lignes
     }
 
     getOrderedQuestions(data) {
@@ -252,7 +396,7 @@ class AdvancedPDFExporter {
 
     estimateQuestionHeight(qData, analyzer) {
         // Estimation simple et sûre
-        let height = 50; // Base généreuse pour le titre
+        let height = 60; // Base plus généreuse pour le titre et nouvelle section résumé
         
         // Estimation simple : 1 ligne par 50 caractères, max 5 lignes
         const estimatedLines = Math.min(Math.ceil(qData.question.length / 50), 5);
@@ -261,13 +405,28 @@ class AdvancedPDFExporter {
         
         if (qData.isOpenQuestion || qData.responsesList?.length > 0) {
             height += 15; // En-tête tableau
-            height += Math.min((qData.responsesList?.length || 0) * 35, 250); // Espace généreux par ligne
+            // BEAUCOUP plus d'espace pour les questions ouvertes avec texte complet
+            const responsesLength = qData.responsesList?.length || 0;
+            if (responsesLength > 0) {
+                // Calculer une estimation basée sur la longueur moyenne des réponses
+                const avgResponseLength = qData.responsesList ? 
+                    qData.responsesList.reduce((sum, r) => sum + r.answer.length, 0) / qData.responsesList.length : 100;
+                
+                // Plus de lignes par réponse en fonction de la longueur
+                const linesPerResponse = Math.min(Math.ceil(avgResponseLength / 80), 12) * 4.5 + 8;
+                height += responsesLength * linesPerResponse;
+                
+                // Limite maximum pour éviter des estimations trop grandes
+                height = Math.min(height, 400);
+            } else {
+                height += responsesLength * 35;
+            }
         } else {
             const answersCount = qData.answers ? Object.keys(qData.answers).length : 0;
             height += answersCount * 25; // Espace généreux par réponse
         }
         
-        return height + 40; // Grande marge de sécurité
+        return height + 50; // Grande marge de sécurité
     }
 
     addStyledQuestionSection(doc, startY, qData, analyzer) {
@@ -749,5 +908,7 @@ class AdvancedPDFExporter {
     }
 }
 
-// Export de la classe
-window.AdvancedPDFExporter = AdvancedPDFExporter;
+// Export de la classe en évitant les conflits de redéclaration
+if (typeof window.AdvancedPDFExporter === 'undefined') {
+    window.AdvancedPDFExporter = AdvancedPDFExporter;
+}

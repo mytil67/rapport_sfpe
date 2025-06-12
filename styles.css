@@ -1,4 +1,4 @@
-/* styles.css */
+/* styles.css - Avec système d'onglets */
 * {
     margin: 0;
     padding: 0;
@@ -210,11 +210,317 @@ body {
     display: block;
 }
 
-.etablissements-grid {
+/* NOUVEAUX STYLES POUR LES ONGLETS */
+.view-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.tab-btn {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    color: #495057;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.tab-btn:hover {
+    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.tab-btn.active {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 20px rgba(79, 172, 254, 0.3);
+}
+
+.tab-btn.active:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(79, 172, 254, 0.4);
+}
+
+/* Titre de section */
+.section-title {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.section-title h3 {
+    font-size: 1.5rem;
+    color: #333;
+    padding: 15px 30px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 50px;
+    border: 2px solid #dee2e6;
+    display: inline-block;
+}
+
+/* En-têtes de gestionnaire - AMÉLIORATION ERGONOMIQUE */
+.gestionnaire-header {
+    margin: 30px 0 20px 0;
+    width: 100%;
+}
+
+.gestionnaire-title {
+    padding: 20px 30px;
+    border-radius: 15px;
+    color: white;
+    margin-bottom: 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.gestionnaire-title h4 {
+    font-size: 1.3rem;
+    margin-bottom: 10px;
+}
+
+.gestionnaire-stats {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.stat-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 6px 15px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    backdrop-filter: blur(5px);
+}
+
+.stat-badge.satisfaction {
+    background: rgba(255, 255, 255, 0.3);
+    font-weight: 600;
+}
+
+/* GRILLES AMÉLIORÉES - AFFICHAGE VERTICAL */
+.etablissements-grid, .etablissements-simple-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 30px;
+    gap: 25px;
     margin-bottom: 40px;
+    width: 100%;
+}
+
+.gestionnaire-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+    width: 100%;
+}
+
+/* NOUVEAU : Styles pour l'affichage tableau */
+.table-view {
+    width: 100%;
+    margin-bottom: 40px;
+}
+
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+.summary-table thead {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+}
+
+.summary-table th {
+    padding: 15px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+    position: sticky;
+    top: 0;
+}
+
+.summary-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.9rem;
+}
+
+.summary-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.summary-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Indicateurs dans le tableau */
+.table-satisfaction {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 0.8rem;
+    min-width: 45px;
+    text-align: center;
+}
+
+.table-satisfaction.excellent {
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+.table-satisfaction.good {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+}
+
+.table-satisfaction.average {
+    background: linear-gradient(135deg, #ffc107, #ffed4e);
+    color: #333;
+}
+
+.table-satisfaction.poor {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.table-gestionnaire {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: white;
+}
+
+.table-gestionnaire.ville { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+.table-gestionnaire.alef { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+.table-gestionnaire.ages { background: linear-gradient(135deg, #fa709a, #fee140); }
+.table-gestionnaire.agf { background: linear-gradient(135deg, #a8edea, #fed6e3); color: #333; }
+.table-gestionnaire.fondation { background: linear-gradient(135deg, #ffecd2, #fcb69f); color: #333; }
+.table-gestionnaire.apedi { background: linear-gradient(135deg, #667eea, #764ba2); }
+.table-gestionnaire.default { background: linear-gradient(135deg, #6c757d, #495057); }
+
+.table-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.table-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.table-btn.details {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    color: white;
+}
+
+.table-btn.pdf {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    color: white;
+}
+
+.table-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Tableau détaillé par gestionnaire */
+.gestionnaire-table-section {
+    margin-bottom: 40px;
+}
+
+.gestionnaire-table-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 10px 10px 0 0;
+    margin-bottom: 0;
+}
+
+.gestionnaire-table-header.ville { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+.gestionnaire-table-header.alef { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+.gestionnaire-table-header.ages { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+.gestionnaire-table-header.agf { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; }
+.gestionnaire-table-header.fondation { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); color: #333; }
+.gestionnaire-table-header.apedi { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+
+.gestionnaire-table-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.gestionnaire-table-stats {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-top: 5px;
+}
+
+/* Table responsive */
+@media (max-width: 768px) {
+    .summary-table {
+        font-size: 0.8rem;
+    }
+    
+    .summary-table th,
+    .summary-table td {
+        padding: 8px 6px;
+    }
+    
+    .table-actions {
+        flex-direction: column;
+        gap: 3px;
+    }
+}
+
+/* Badges de classement */
+.rank-badge {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    z-index: 2;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.rank-badge.rank-top {
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+    color: #333;
+    border: 2px solid #fff;
+}
+
+.rank-badge.rank-good {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.rank-badge.rank-normal {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
 }
 
 .etablissement-card {
@@ -224,6 +530,7 @@ body {
     overflow: hidden;
     transition: all 0.3s ease;
     border: 2px solid transparent;
+    position: relative;
 }
 
 .etablissement-card:hover {
@@ -658,43 +965,6 @@ body {
     background: #dc3545;
 }
 
-/* Responsive pour les détails */
-@media (max-width: 768px) {
-    .response-header {
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 10px;
-    }
-    
-    .categories-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .modal-body {
-        padding: 15px 20px;
-    }
-    
-    .category-section {
-        padding: 12px;
-    }
-}
-
-/* Loading dans le modal */
-.modal-loading {
-    text-align: center;
-    padding: 40px;
-    color: #666;
-}
-
-.modal-spinner {
-    width: 30px;
-    height: 30px;
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid #4facfe;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 20px auto;
-}
-
 /* Actions dans le modal */
 .modal-actions {
     margin-top: 30px;
@@ -768,6 +1038,23 @@ body {
     padding: 40px;
 }
 
+/* Loading dans le modal */
+.modal-loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.modal-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #4facfe;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .header h1 {
@@ -778,7 +1065,11 @@ body {
         padding: 20px;
     }
     
-    .etablissements-grid {
+    .etablissements-grid, .etablissements-simple-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .gestionnaire-grid {
         grid-template-columns: 1fr;
     }
     
@@ -794,5 +1085,40 @@ body {
         display: block;
         margin: 10px auto;
         width: 80%;
+    }
+    
+    .view-tabs {
+        gap: 5px;
+    }
+    
+    .tab-btn {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+    
+    .response-header {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+    }
+    
+    .categories-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-body {
+        padding: 15px 20px;
+    }
+    
+    .category-section {
+        padding: 12px;
+    }
+    
+    .gestionnaire-stats {
+        gap: 8px;
+    }
+    
+    .stat-badge {
+        font-size: 0.75rem;
+        padding: 4px 10px;
     }
 }

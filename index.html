@@ -31,6 +31,29 @@
                         <p id="file-name"></p>
                         <button id="process-file-btn" class="process-btn">Analyser le fichier</button>
                     </div>
+
+                    <!-- NOUVELLE SECTION : Import du fichier de mapping gestionnaires -->
+                    <div class="mapping-section" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.3);">
+                        <h3 style="margin-bottom: 15px;">📋 Fichier de référence des gestionnaires (optionnel)</h3>
+                        <p style="opacity: 0.9; margin-bottom: 20px; font-size: 0.9rem;">
+                            Importez votre fichier Excel de correspondance établissement-gestionnaire pour un classement précis
+                        </p>
+                        
+                        <div class="mapping-upload-area" id="mapping-upload-area" style="background: rgba(255,255,255,0.15); border: 1px dashed rgba(255,255,255,0.4); border-radius: 10px; padding: 20px; cursor: pointer; transition: all 0.3s ease;">
+                            <div style="font-size: 1.5rem; margin-bottom: 10px;">📊</div>
+                            <p style="margin: 0; font-size: 0.9rem;">Fichier de mapping établissements</p>
+                            <input type="file" id="mapping-input" accept=".xlsx,.xls" style="display: none;">
+                            <div style="margin-top: 10px;">
+                                <button id="select-mapping-btn" class="upload-btn" style="margin-right: 10px; font-size: 0.8rem; padding: 8px 20px;">Sélectionner</button>
+                                <button id="download-template-btn" class="upload-btn" style="background: rgba(255,255,255,0.7); color: #f5576c; font-size: 0.8rem; padding: 8px 15px;">📥 Template</button>
+                            </div>
+                        </div>
+                        
+                        <div id="mapping-info" class="file-info" style="display: none; margin-top: 15px;">
+                            <p id="mapping-file-name" style="margin: 0; font-size: 0.9rem;"></p>
+                            <p id="mapping-status" style="margin: 5px 0 0 0; font-size: 0.8rem; opacity: 0.8;"></p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -70,6 +93,15 @@
                             <span>Période d'enquête</span>
                         </div>
                     </div>
+                </div>
+
+                <!-- Onglets de vue -->
+                <div class="view-tabs">
+                    <button class="tab-btn active" data-view="etablissements">📋 Par établissements</button>
+                    <button class="tab-btn" data-view="satisfaction">📊 Par satisfaction</button>
+                    <button class="tab-btn" data-view="gestionnaires">👥 Par gestionnaires</button>
+                    <button class="tab-btn" data-view="repondants">📈 Par nb répondants</button>
+                    <button class="tab-btn" data-view="tableaux">📋 Tableaux</button>
                 </div>
 
                 <!-- Grille des établissements -->
