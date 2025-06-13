@@ -471,21 +471,21 @@ class AdvancedPDFExporter {
                 const avgResponseLength = qData.responsesList ? 
                     qData.responsesList.reduce((sum, r) => sum + r.answer.length, 0) / qData.responsesList.length : 100;
                 
-                // Plus de lignes par réponse en fonction de la longueur
-                const linesPerResponse = Math.min(Math.ceil(avgResponseLength / 80), 12) * 4.5 + 8;
+                // BEAUCOUP plus de lignes par réponse en fonction de la longueur
+                const linesPerResponse = Math.min(Math.ceil(avgResponseLength / 70), 25) * 5.5 + 12; // Augmenté considérablement
                 height += responsesLength * linesPerResponse;
                 
-                // Limite maximum pour éviter des estimations trop grandes
-                height = Math.min(height, 400);
+                // Limite maximum augmentée pour éviter des estimations trop grandes
+                height = Math.min(height, 600);
             } else {
-                height += responsesLength * 35;
+                height += responsesLength * 50; // Plus d'espace par défaut
             }
         } else {
             const answersCount = qData.answers ? Object.keys(qData.answers).length : 0;
             height += answersCount * 25; // Espace généreux par réponse
         }
         
-        return height + 50; // Grande marge de sécurité
+        return height + 60; // Grande marge de sécurité augmentée
     }
 
     addStyledQuestionSection(doc, startY, qData, analyzer) {
@@ -718,29 +718,33 @@ class AdvancedPDFExporter {
         
         y += 12;
 
-        // Réponses avec plus d'espace pour le texte AVEC COULEURS
+        // Réponses avec BEAUCOUP plus d'espace pour le texte AVEC COULEURS
         qData.responsesList.forEach((item, index) => {
             // Plus d'espace pour les réponses (toute la largeur moins la colonne numéro)
             const maxResponseWidth = this.contentWidth - 25;
             
-            // PLUS DE LIMITATION sur la longueur - afficher le texte complet
+            // LIMITE TRÈS ÉLEVÉE pour afficher le texte complet
             let responseText = item.answer;
-            // Augmenter la limite considérablement pour les questions vraiment ouvertes
-            if (responseText.length > 800) {
-                responseText = responseText.substring(0, 797) + '...';
+            // Augmenter drastiquement la limite pour les questions vraiment ouvertes
+            if (responseText.length > 1500) {
+                responseText = responseText.substring(0, 1497) + '...';
             }
             
             const responseLines = doc.splitTextToSize(responseText, maxResponseWidth);
             
-            // PLUS de lignes autorisées pour afficher tout le contenu
-            const maxLines = 12; // Doublé pour plus de contenu
+            // BEAUCOUP plus de lignes autorisées pour afficher tout le contenu
+            const maxLines = 25; // Très augmenté pour plus de contenu
             const actualResponseLines = responseLines.slice(0, maxLines);
             if (responseLines.length > maxLines) {
                 actualResponseLines[maxLines - 1] = actualResponseLines[maxLines - 1].substring(0, actualResponseLines[maxLines - 1].length - 3) + '...';
             }
             
-            // Hauteur basée sur le contenu réel
-            const neededHeight = Math.max(actualResponseLines.length * 4.5, 18) + 8;
+            // Hauteur basée sur le contenu réel avec PLUS d'espace
+            const lineSpacing = 5.5; // Augmenté pour plus de lisibilité
+            const minHeight = 25; // Hauteur minimum plus généreuse
+            const contentHeight = actualResponseLines.length * lineSpacing;
+            const paddingHeight = 12; // Plus de padding
+            const neededHeight = Math.max(contentHeight + paddingHeight, minHeight);
             
             if (y + neededHeight > this.pageHeight - this.margins.bottom) {
                 doc.addPage();
@@ -777,19 +781,21 @@ class AdvancedPDFExporter {
 
             // Contenu avec alignement vertical centré AVEC COULEURS
             doc.setTextColor(...this.colors.text);
-            doc.setFontSize(7.5); // Taille légèrement réduite pour plus de contenu
+            doc.setFontSize(8); // Taille légèrement augmentée pour une meilleure lisibilité
             
-            // Calcul de l'alignement vertical
-            const contentStartY = y + 6; // Démarrer plus haut
+            // Calcul de l'alignement vertical avec plus d'espace
+            const contentStartY = y + 8; // Plus d'espace en haut
             
             // Numéro centré horizontalement et verticalement
             doc.setFont('helvetica', 'bold');
-            doc.text(`${index + 1}`, this.margins.left + 10, contentStartY + 6);
+            const numberY = contentStartY + (neededHeight / 2) - 2; // Centrer verticalement dans la cellule
+            doc.text(`${index + 1}`, this.margins.left + 10, numberY);
             
-            // Réponse avec plus d'espace et interligne réduit
+            // Réponse avec espacement amélioré
             doc.setFont('helvetica', 'normal');
             actualResponseLines.forEach((line, lineIndex) => {
-                doc.text(line, this.margins.left + 23, contentStartY + (lineIndex * 4.5));
+                const lineY = contentStartY + (lineIndex * lineSpacing);
+                doc.text(line, this.margins.left + 23, lineY);
             });
 
             y += neededHeight;

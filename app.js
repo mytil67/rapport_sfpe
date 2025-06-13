@@ -15,12 +15,15 @@
 
             const validTypes = [
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'application/vnd.ms-excel'
+                'application/vnd.ms-excel',
+                'application/json'
             ];
-            if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
+            const validExtensions = /\.(xlsx|xls|json)$/i;
+            
+            if (!validTypes.includes(file.type) && !file.name.match(validExtensions)) {
                 return {
                     valid: false,
-                    error: 'Veuillez sélectionner un fichier Excel (.xlsx ou .xls)'
+                    error: 'Veuillez sélectionner un fichier Excel (.xlsx, .xls) ou JSON (.json)'
                 };
             }
             return { valid: true };
@@ -32,6 +35,22 @@
             const sizes = ['Bytes', 'KB', 'MB', 'GB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        readJSONFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const jsonData = JSON.parse(e.target.result);
+                        resolve(jsonData);
+                    } catch (error) {
+                        reject(new Error('Impossible de lire le fichier JSON : format invalide'));
+                    }
+                };
+                reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
+                reader.readAsText(file);
+            });
         }
 
         readExcelFile(file) {
@@ -73,13 +92,25 @@
                 throw new Error('Aucun fichier sélectionné');
             }
             try {
-                progressCallback('Lecture du fichier Excel...');
-                const data = await this.readExcelFile(this.selectedFile);
-                if (!data || data.length === 0) {
-                    throw new Error('Le fichier Excel est vide');
+                const fileName = this.selectedFile.name.toLowerCase();
+                
+                if (fileName.endsWith('.json')) {
+                    progressCallback('Lecture du fichier JSON...');
+                    const jsonData = await this.readJSONFile(this.selectedFile);
+                    if (!jsonData || !jsonData.etablissements || !jsonData.rawResponses) {
+                        throw new Error('Le fichier JSON ne contient pas les données attendues');
+                    }
+                    progressCallback('Fichier JSON lu avec succès');
+                    return { type: 'json', data: jsonData };
+                } else {
+                    progressCallback('Lecture du fichier Excel...');
+                    const excelData = await this.readExcelFile(this.selectedFile);
+                    if (!excelData || excelData.length === 0) {
+                        throw new Error('Le fichier Excel est vide');
+                    }
+                    progressCallback('Fichier Excel lu avec succès');
+                    return { type: 'excel', data: excelData };
                 }
-                progressCallback('Fichier lu avec succès');
-                return data;
             } catch (error) {
                 throw new Error(`Erreur lors du traitement du fichier: ${error.message}`);
             }
@@ -539,6 +570,31 @@
             console.log('🔍 === FIN DEBUG EXTRACTION ===\n');
 
             return response;
+        }
+
+        loadFromJSON(jsonData) {
+            try {
+                console.log('📥 Chargement des données depuis JSON...');
+                console.log('Structure JSON:', Object.keys(jsonData));
+                
+                if (!jsonData.etablissements || !jsonData.rawResponses) {
+                    throw new Error('Structure JSON invalide : établissements ou rawResponses manquants');
+                }
+                
+                // Charger les données directement
+                this.surveyData = jsonData.etablissements;
+                this.rawData = jsonData.rawResponses;
+                
+                console.log(`✅ Données chargées: ${Object.keys(this.surveyData).length} établissements, ${this.rawData.length} réponses`);
+                
+                return {
+                    totalResponses: this.rawData.length,
+                    etablissements: Object.keys(this.surveyData).length
+                };
+            } catch (error) {
+                console.error('❌ Erreur lors du chargement JSON:', error);
+                throw new Error(`Impossible de charger les données JSON: ${error.message}`);
+            }
         }
 
         analyzeData(excelData) {
@@ -1792,6 +1848,11 @@
             const mappingUploadArea = document.getElementById('mapping-upload-area');
             const downloadTemplateBtn = document.getElementById('download-template-btn');
 
+            // NOUVEAUX EVENT LISTENERS : Import JSON rapide
+            const jsonInput = document.getElementById('json-input');
+            const selectJsonBtn = document.getElementById('select-json-btn');
+            const jsonUploadArea = document.getElementById('json-upload-area');
+
             if (selectFileBtn) selectFileBtn.addEventListener('click', () => fileInput.click());
             if (fileInput) fileInput.addEventListener('change', e => this.handleFileSelect(e.target.files[0]));
             if (uploadArea) {
@@ -1807,6 +1868,15 @@
                 mappingUploadArea.addEventListener('dragover', e => this.handleMappingDragOver(e));
                 mappingUploadArea.addEventListener('dragleave', e => this.handleMappingDragLeave(e));
                 mappingUploadArea.addEventListener('drop', e => this.handleMappingDrop(e));
+            }
+
+            // EVENT LISTENERS : Import JSON rapide
+            if (selectJsonBtn) selectJsonBtn.addEventListener('click', () => jsonInput.click());
+            if (jsonInput) jsonInput.addEventListener('change', e => this.handleJSONFileSelect(e.target.files[0]));
+            if (jsonUploadArea) {
+                jsonUploadArea.addEventListener('dragover', e => this.handleJSONDragOver(e));
+                jsonUploadArea.addEventListener('dragleave', e => this.handleJSONDragLeave(e));
+                jsonUploadArea.addEventListener('drop', e => this.handleJSONDrop(e));
             }
 
             if (processFileBtn) processFileBtn.addEventListener('click', () => this.processFile());
@@ -1825,6 +1895,91 @@
             window.addEventListener('click', e => {
                 if (e.target === modal) this.closeModal();
             });
+        }
+
+        // NOUVELLES MÉTHODES : Gestion de l'import JSON
+        handleJSONFileSelect(file) {
+            if (!file) return;
+
+            const validation = this.fileHandler.validateFile(file);
+            if (!validation.valid) {
+                this.showJSONError(validation.error);
+                return;
+            }
+
+            if (!file.name.toLowerCase().endsWith('.json')) {
+                this.showJSONError('Veuillez sélectionner un fichier JSON (.json)');
+                return;
+            }
+
+            this.showJSONInfo(file.name, this.fileHandler.formatFileSize(file.size));
+            this.loadJSONFile(file);
+        }
+
+        async loadJSONFile(file) {
+            try {
+                this.showJSONStatus('Chargement du fichier JSON...');
+                
+                // Utiliser le FileHandler pour lire le JSON
+                this.fileHandler.selectedFile = file;
+                const fileResult = await this.fileHandler.processFile(msg => this.showJSONStatus(msg));
+                
+                if (fileResult.type === 'json') {
+                    this.showJSONStatus('Traitement des données...');
+                    
+                    // Charger les données directement
+                    const res = this.dataAnalyzer.loadFromJSON(fileResult.data);
+                    
+                    this.showJSONStatus(`✅ Chargé: ${res.etablissements} établissements, ${res.totalResponses} réponses`);
+                    
+                    // Afficher les résultats automatiquement
+                    setTimeout(() => {
+                        this.renderResults();
+                        console.log(`🚀 Import JSON réussi: ${res.totalResponses} réponses, ${res.etablissements} établissements`);
+                    }, 1000);
+                } else {
+                    throw new Error('Type de fichier inattendu');
+                }
+            } catch (error) {
+                this.showJSONError(`Erreur: ${error.message}`);
+                console.error('❌ Erreur import JSON:', error);
+            }
+        }
+
+        handleJSONDragOver(e) {
+            e.preventDefault();
+            document.getElementById('json-upload-area').style.background = 'rgba(255, 255, 255, 0.25)';
+        }
+
+        handleJSONDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('json-upload-area').style.background = 'rgba(255, 255, 255, 0.15)';
+        }
+
+        handleJSONDrop(e) {
+            e.preventDefault();
+            document.getElementById('json-upload-area').style.background = 'rgba(255, 255, 255, 0.15)';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) this.handleJSONFileSelect(files[0]);
+        }
+
+        showJSONInfo(fileName, fileSize) {
+            document.getElementById('json-file-name').textContent = `⚡ ${fileName} (${fileSize})`;
+            document.getElementById('json-info').style.display = 'block';
+        }
+
+        showJSONStatus(status) {
+            document.getElementById('json-status').textContent = status;
+            document.getElementById('json-status').style.color = '#ffffff';
+        }
+
+        showJSONError(error) {
+            document.getElementById('json-status').textContent = `❌ ${error}`;
+            document.getElementById('json-status').style.color = '#ffcccc';
+        }
+
+        hideJSONInfo() {
+            document.getElementById('json-info').style.display = 'none';
         }
 
         handleMappingFileSelect(file) {
@@ -1968,17 +2123,33 @@
 
         async processFile() {
             try {
-                const excelData = await this.fileHandler.processFile(msg => this.uiRenderer.showLoading(msg));
-                this.uiRenderer.showLoading('Analyse des données...');
-                setTimeout(() => {
-                    try {
-                        const res = this.dataAnalyzer.analyzeData(excelData);
-                        this.renderResults();
-                        console.log(`✅ Analyse terminée: ${res.totalResponses} réponses, ${res.etablissements} établissements`);
-                    } catch (err) {
-                        this.uiRenderer.showError(`Erreur lors de l'analyse: ${err.message}`);
-                    }
-                }, 500);
+                const fileResult = await this.fileHandler.processFile(msg => this.uiRenderer.showLoading(msg));
+                
+                if (fileResult.type === 'json') {
+                    // Traitement des données JSON
+                    this.uiRenderer.showLoading('Chargement des données JSON...');
+                    setTimeout(() => {
+                        try {
+                            const res = this.dataAnalyzer.loadFromJSON(fileResult.data);
+                            this.renderResults();
+                            console.log(`✅ JSON chargé: ${res.totalResponses} réponses, ${res.etablissements} établissements`);
+                        } catch (err) {
+                            this.uiRenderer.showError(`Erreur lors du chargement JSON: ${err.message}`);
+                        }
+                    }, 500);
+                } else {
+                    // Traitement des données Excel (logique existante)
+                    this.uiRenderer.showLoading('Analyse des données Excel...');
+                    setTimeout(() => {
+                        try {
+                            const res = this.dataAnalyzer.analyzeData(fileResult.data);
+                            this.renderResults();
+                            console.log(`✅ Excel analysé: ${res.totalResponses} réponses, ${res.etablissements} établissements`);
+                        } catch (err) {
+                            this.uiRenderer.showError(`Erreur lors de l'analyse: ${err.message}`);
+                        }
+                    }, 500);
+                }
             } catch (err) {
                 console.error('Erreur traitement:', err);
                 this.uiRenderer.showError(err.message);
@@ -2039,8 +2210,12 @@
             this.dataAnalyzer.reset();
             document.getElementById('file-input').value = '';
             document.getElementById('mapping-input').value = '';
+            if (document.getElementById('json-input')) {
+                document.getElementById('json-input').value = '';
+            }
             this.uiRenderer.hideFileInfo();
             this.hideMappingInfo();
+            this.hideJSONInfo();
             this.uiRenderer.showUpload();
         }
     }

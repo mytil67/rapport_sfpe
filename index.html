@@ -18,18 +18,46 @@
             <div id="file-upload-section" class="file-upload-section">
                 <div class="upload-container">
                     <h2>📁 Importer le fichier de données</h2>
-                    <p>Sélectionnez le fichier Excel (.xlsx ou .xls) contenant les réponses du questionnaire</p>
+                    <p>Sélectionnez le fichier Excel (.xlsx, .xls) contenant les réponses du questionnaire<br>
+                    ou un fichier JSON (.json) d'analyse précédente pour un chargement rapide</p>
                     
                     <div class="upload-area" id="upload-area">
                         <div class="upload-icon">📁</div>
-                        <p>Glissez-déposez votre fichier Excel ici ou cliquez pour sélectionner</p>
-                        <input type="file" id="file-input" accept=".xlsx,.xls" style="display: none;">
+                        <p>Glissez-déposez votre fichier Excel ou JSON ici ou cliquez pour sélectionner</p>
+                        <input type="file" id="file-input" accept=".xlsx,.xls,.json" style="display: none;">
                         <button id="select-file-btn" class="upload-btn">Sélectionner un fichier</button>
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid rgba(255,255,255,0.3);">
+                            <p style="font-size: 0.9rem; opacity: 0.8;">
+                                💡 <strong>Astuce :</strong> Importez un fichier JSON d'analyse précédente pour un chargement instantané !
+                            </p>
+                        </div>
                     </div>
                     
                     <div id="file-info" class="file-info" style="display: none;">
                         <p id="file-name"></p>
                         <button id="process-file-btn" class="process-btn">Analyser le fichier</button>
+                    </div>
+
+                    <!-- NOUVELLE SECTION : Import JSON rapide -->
+                    <div class="json-import-section" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.3);">
+                        <h3 style="margin-bottom: 15px;">⚡ Import rapide JSON</h3>
+                        <p style="opacity: 0.9; margin-bottom: 20px; font-size: 0.9rem;">
+                            Rechargez instantanément une analyse précédente depuis un fichier JSON exporté
+                        </p>
+                        
+                        <div class="json-upload-area" id="json-upload-area" style="background: rgba(255,255,255,0.15); border: 1px dashed rgba(255,255,255,0.4); border-radius: 10px; padding: 20px; cursor: pointer; transition: all 0.3s ease;">
+                            <div style="font-size: 1.5rem; margin-bottom: 10px;">⚡</div>
+                            <p style="margin: 0; font-size: 0.9rem;">Fichier JSON d'analyse</p>
+                            <input type="file" id="json-input" accept=".json" style="display: none;">
+                            <div style="margin-top: 10px;">
+                                <button id="select-json-btn" class="upload-btn" style="font-size: 0.8rem; padding: 8px 20px;">📥 Charger JSON</button>
+                            </div>
+                        </div>
+                        
+                        <div id="json-info" class="file-info" style="display: none; margin-top: 15px;">
+                            <p id="json-file-name" style="margin: 0; font-size: 0.9rem;"></p>
+                            <p id="json-status" style="margin: 5px 0 0 0; font-size: 0.8rem; opacity: 0.8;"></p>
+                        </div>
                     </div>
 
                     <!-- Section : Import du fichier de mapping gestionnaires -->

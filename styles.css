@@ -64,7 +64,7 @@ body {
     padding: 40px;
 }
 
-/* Section d'upload de fichier */
+/* Section d'upload de fichier et JSON */
 .file-upload-section {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     color: white;
@@ -85,7 +85,7 @@ body {
     margin-bottom: 30px;
 }
 
-.upload-area {
+.upload-area, .json-upload-area {
     background: rgba(255, 255, 255, 0.2);
     border: 2px dashed rgba(255, 255, 255, 0.5);
     border-radius: 15px;
@@ -95,16 +95,35 @@ body {
     backdrop-filter: blur(10px);
 }
 
-.upload-area:hover {
+.upload-area:hover, .json-upload-area:hover {
     background: rgba(255, 255, 255, 0.3);
     border-color: rgba(255, 255, 255, 0.8);
     transform: scale(1.02);
 }
 
-.upload-area.dragover {
+.upload-area.dragover, .json-upload-area.dragover {
     background: rgba(255, 255, 255, 0.4);
     border-color: white;
     transform: scale(1.05);
+}
+
+.json-upload-area {
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px dashed rgba(255, 255, 255, 0.4);
+}
+
+.json-import-section h3 {
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.json-import-section h3::before {
+    content: "⚡";
+    font-size: 1.2em;
 }
 
 .upload-icon {
