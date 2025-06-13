@@ -32,7 +32,7 @@
                         <button id="process-file-btn" class="process-btn">Analyser le fichier</button>
                     </div>
 
-                    <!-- NOUVELLE SECTION : Import du fichier de mapping gestionnaires -->
+                    <!-- Section : Import du fichier de mapping gestionnaires -->
                     <div class="mapping-section" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.3);">
                         <h3 style="margin-bottom: 15px;">📋 Fichier de référence des gestionnaires (optionnel)</h3>
                         <p style="opacity: 0.9; margin-bottom: 20px; font-size: 0.9rem;">
@@ -97,16 +97,15 @@
 
                 <!-- Onglets de vue -->
                 <div class="view-tabs">
-                    <button class="tab-btn active" data-view="etablissements">📋 Par établissements</button>
-                    <button class="tab-btn" data-view="satisfaction">📊 Par satisfaction</button>
-                    <button class="tab-btn" data-view="gestionnaires">👥 Par gestionnaires</button>
-                    <button class="tab-btn" data-view="repondants">📈 Par nb répondants</button>
-                    <button class="tab-btn" data-view="tableaux">📋 Tableaux</button>
+                    <button class="tab-btn active" data-view="etablissements">📋 Liste alphabétique</button>
+                    <button class="tab-btn" data-view="satisfaction">📊 Tri par satisfaction</button>
+                    <button class="tab-btn" data-view="gestionnaires">👥 Tri par gestionnaires</button>
+                    <button class="tab-btn" data-view="repondants">📈 Tri par répondants</button>
                 </div>
 
-                <!-- Grille des établissements -->
-                <div class="etablissements-grid" id="etablissements-container">
-                    <!-- Les cartes d'établissements seront générées ici -->
+                <!-- Conteneur principal pour les tableaux -->
+                <div class="table-view-container" id="etablissements-container">
+                    <!-- Les tableaux avec contrôles seront générés ici -->
                 </div>
 
                 <!-- Actions globales -->

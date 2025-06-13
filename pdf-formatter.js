@@ -1,4 +1,4 @@
-// pdf-formatter.js - Version corrigée avec calcul de satisfaction et affichage multi-lignes
+// pdf-formatter.js - Version corrigée pour les questions "Si non, pourquoi ?" et formatage amélioré
 
 class AdvancedPDFExporter {
     constructor() {
@@ -161,6 +161,65 @@ class AdvancedPDFExporter {
         console.log(`- Pourcentage: ${satisfactionPercentage}%`);
 
         return satisfactionPercentage;
+    }
+
+    // NOUVELLE MÉTHODE : Détecter si une question "Si non, pourquoi ?" contient du texte libre
+    hasFreeTextResponses(qData) {
+        if (!qData.responsesList || qData.responsesList.length === 0) {
+            return false;
+        }
+
+        // Seuils pour détecter du texte libre
+        const freeTextIndicators = qData.responsesList.some(response => {
+            const text = response.answer.toLowerCase();
+            
+            // Si le texte est long, c'est probablement du texte libre
+            if (text.length > 50) return true;
+            
+            // Si contient des mots indicateurs de texte libre
+            const freeTextWords = [
+                'parce que', 'car', 'donc', 'mais', 'cependant', 'néanmoins',
+                'équipe', 'personnel', 'enfant', 'crèche', 'directeur', 'directrice',
+                'problème', 'difficulté', 'amélioration', 'suggestion', 'conseil',
+                'horaires', 'accueil', 'communication', 'manque', 'besoin',
+                'j\'aimerais', 'je pense', 'il faudrait', 'ce serait bien',
+                'plus de', 'moins de', 'trop de', 'pas assez'
+            ];
+            
+            return freeTextWords.some(word => text.includes(word));
+        });
+
+        // Si plus de 30% des réponses semblent être du texte libre
+        const freeTextCount = qData.responsesList.filter(response => {
+            const text = response.answer.toLowerCase();
+            return text.length > 30 || 
+                   ['parce que', 'car', 'équipe', 'enfant', 'problème', 'j\'aimerais'].some(word => text.includes(word));
+        }).length;
+
+        const freeTextRatio = freeTextCount / qData.responsesList.length;
+        
+        console.log(`🔍 Analyse texte libre pour question:`, {
+            totalResponses: qData.responsesList.length,
+            freeTextCount: freeTextCount,
+            freeTextRatio: freeTextRatio,
+            hasFreeTextIndicators: freeTextIndicators
+        });
+
+        return freeTextIndicators || freeTextRatio > 0.3;
+    }
+
+    // MÉTHODE AMÉLIORÉE : Détecter si les réponses sont des choix prédéfinis courts
+    hasShortPredefinedChoices(qData) {
+        if (!qData.answers || Object.keys(qData.answers).length === 0) {
+            return false;
+        }
+
+        const choices = Object.keys(qData.answers);
+        const shortChoices = choices.filter(choice => choice.length <= 30);
+        const shortChoiceRatio = shortChoices.length / choices.length;
+
+        // Si la plupart des réponses sont courtes et semblent être des choix prédéfinis
+        return shortChoiceRatio > 0.7 && choices.length <= 8;
     }
 
     exportEtablissementToPDF(name, surveyData, analyzer) {
@@ -488,7 +547,7 @@ class AdvancedPDFExporter {
         doc.text(`${qData.totalResponses} reponse${qData.totalResponses > 1 ? 's' : ''}`, this.margins.left, y);
         y += 10;
 
-        // Détecter le type de question avec logique renforcée
+        // LOGIQUE AMÉLIORÉE : Détecter le type de question avec attention spéciale aux "Si non, pourquoi ?"
         const questionLower = qData.question.toLowerCase();
         
         // Questions "Si non" sont des choix multiples, PAS des questions ouvertes
@@ -498,6 +557,33 @@ class AdvancedPDFExporter {
                                questionLower.includes('si non, pourquoi') ||
                                questionLower.includes('si non, pouvez-vous préciser');
         
+        // NOUVELLE LOGIQUE : Pour les questions "Si non", vérifier le contenu des réponses
+        let treatAsOpenQuestion = false;
+        
+        if (isSiNonQuestion) {
+            console.log('🔍 Question "Si non" détectée:', qData.question);
+            
+            // Vérifier si les réponses contiennent du texte libre
+            const hasFreeText = this.hasFreeTextResponses(qData);
+            const hasShortChoices = this.hasShortPredefinedChoices(qData);
+            
+            console.log('📊 Analyse réponses "Si non":', {
+                hasFreeText,
+                hasShortChoices,
+                totalResponses: qData.totalResponses,
+                answersKeys: qData.answers ? Object.keys(qData.answers) : [],
+                responsesListLength: qData.responsesList?.length || 0
+            });
+            
+            // Si la question contient majoritairement du texte libre, la traiter comme ouverte
+            if (hasFreeText && !hasShortChoices) {
+                treatAsOpenQuestion = true;
+                console.log('✅ Question "Si non" traitée comme OUVERTE (texte libre détecté)');
+            } else {
+                console.log('✅ Question "Si non" traitée comme FERMÉE (choix prédéfinis détectés)');
+            }
+        }
+        
         // Questions VRAIMENT ouvertes (commentaires libres SEULEMENT)
         const isDefinitelyOpen = !isSiNonQuestion && (
                                questionLower.includes('remarques') || 
@@ -505,7 +591,6 @@ class AdvancedPDFExporter {
                                questionLower.includes('complémentaires') ||
                                questionLower.includes('commentaire') ||
                                questionLower.includes('avez-vous des remarques')
-                               // Enlever "préciser" et "pourquoi" car souvent des choix multiples
                                );
         
         // Analyser le contenu des réponses pour détecter les choix multiples
@@ -538,16 +623,16 @@ class AdvancedPDFExporter {
             // Si les réponses sont courtes et répétitives, c'est probablement fermé
             const uniqueResponses = [...new Set(responses)];
             const avgLength = responses.reduce((sum, r) => sum + r.length, 0) / responses.length;
-            if (uniqueResponses.length <= 15 && avgLength <= 100) {
+            if (uniqueResponses.length <= 15 && avgLength <= 100 && !treatAsOpenQuestion) {
                 hasStructuredAnswers = true;
             }
         }
         
-        // Forcer les questions fermées (INCLURE les questions "Si non")
-        const isDefinitelyClosed = isSiNonQuestion || // PRIORITÉ aux questions "Si non"
+        // Forcer les questions fermées (MAIS PAS les questions "Si non" avec texte libre)
+        const isDefinitelyClosed = (!treatAsOpenQuestion && isSiNonQuestion) || // Questions "Si non" SAUF celles avec texte libre
                                   qData.isMultiOptions || // Marqué explicitement
                                   hasMultipleChoices || // Contient des séparateurs
-                                  hasStructuredAnswers || // A des answers structurées
+                                  (hasStructuredAnswers && !treatAsOpenQuestion) || // A des answers structurées
                                   questionLower.includes('satisfait') ||
                                   questionLower.includes('oui') ||
                                   questionLower.includes('non') ||
@@ -568,17 +653,23 @@ class AdvancedPDFExporter {
                                   questionLower.includes('construite') ||
                                   questionLower.includes('respecte');
 
-        // Logique de décision : PRIVILÉGIER FORTEMENT les questions fermées
-        if (!isDefinitelyOpen && (isDefinitelyClosed || hasStructuredAnswers || hasMultipleChoices || isSiNonQuestion)) {
-            y = this.addStyledClosedQuestionBars(doc, y, qData, analyzer);
-        } else if (isDefinitelyOpen && !isSiNonQuestion) {
+        // LOGIQUE DE DÉCISION FINALE
+        if (treatAsOpenQuestion || (isDefinitelyOpen && !isSiNonQuestion)) {
+            // Traiter comme question ouverte (tableau avec texte complet)
+            console.log('📋 Rendu en TABLEAU (question ouverte)');
             y = this.addStyledOpenQuestionTable(doc, y, qData);
+        } else if (isDefinitelyClosed || hasStructuredAnswers || hasMultipleChoices) {
+            // Traiter comme question fermée (barres de pourcentage)
+            console.log('📊 Rendu en BARRES (question fermée)');
+            y = this.addStyledClosedQuestionBars(doc, y, qData, analyzer);
         } else {
-            // En cas de doute, traiter en barres si on a des données quantifiables
+            // En cas de doute, privilégier les barres si on a des données quantifiables
             if ((qData.answers && Object.keys(qData.answers).length > 0) || 
                 (qData.responsesList && qData.responsesList.length > 0)) {
+                console.log('📊 Rendu en BARRES (par défaut)');
                 y = this.addStyledClosedQuestionBars(doc, y, qData, analyzer);
             } else {
+                console.log('📋 Rendu en TABLEAU (par défaut)');
                 y = this.addStyledOpenQuestionTable(doc, y, qData);
             }
         }

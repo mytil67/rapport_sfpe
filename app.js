@@ -1,6 +1,4 @@
-// app.js - Adapté pour traiter le fichier "Classeur1_agrégé.xlsx" issu d'un export révisé.
-//           Les colonnes d'établissement et de gestionnaire sont maintenant séparées,
-//           et les follow‐up "Si non, pourquoi ?" apparaissent avec des suffixes explicites.
+// app.js - Version avec affichage en tableaux, tri et filtres
 // Crèches de Strasbourg - Analyse d'enquêtes de satisfaction
 
 (function() {
@@ -97,10 +95,9 @@
         constructor() {
             this.rawData = [];
             this.surveyData = {};
-            this.etablissementGestionnaireMap = new Map(); // Nouveau mapping depuis fichier de référence
+            this.etablissementGestionnaireMap = new Map();
         }
 
-        // NOUVELLE MÉTHODE : Charger le mapping établissement-gestionnaire depuis un fichier Excel
         async loadEtablissementMapping(file) {
             try {
                 console.log('📁 Chargement du mapping établissement-gestionnaire...');
@@ -113,7 +110,6 @@
                 const headers = data[0];
                 console.log('📋 En-têtes trouvés:', headers);
 
-                // Identifier les colonnes établissement et gestionnaire
                 let etablissementCol = -1;
                 let gestionnaireCol = -1;
 
@@ -136,7 +132,6 @@
                     throw new Error('Colonnes établissement ou gestionnaire non trouvées dans le fichier');
                 }
 
-                // Construire le mapping
                 this.etablissementGestionnaireMap.clear();
                 let mappedCount = 0;
 
@@ -165,7 +160,6 @@
             }
         }
 
-        // MÉTHODE UTILITAIRE : Lire un fichier Excel (dupliquée depuis FileHandler)
         readExcelFile(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -186,35 +180,30 @@
             });
         }
 
-        // MÉTHODE AMÉLIORÉE : Trouver le gestionnaire en utilisant le mapping de référence
         findGestionnaireForEtablissement(etablissementName) {
             if (!etablissementName || this.etablissementGestionnaireMap.size === 0) {
                 return 'Non spécifié';
             }
 
-            // 1. Recherche exacte
             if (this.etablissementGestionnaireMap.has(etablissementName)) {
                 return this.etablissementGestionnaireMap.get(etablissementName);
             }
 
-            // 2. Recherche fuzzy (approximative)
             const normalizedInput = this.normalizeEtablissementName(etablissementName);
             
             for (const [mappedName, gestionnaire] of this.etablissementGestionnaireMap.entries()) {
                 const normalizedMapped = this.normalizeEtablissementName(mappedName);
                 
-                // Recherche par inclusion (nom contenu dans l'autre)
                 if (normalizedInput.includes(normalizedMapped) || normalizedMapped.includes(normalizedInput)) {
                     console.log(`🔍 Match trouvé: "${etablissementName}" ≈ "${mappedName}" → ${gestionnaire}`);
                     return gestionnaire;
                 }
                 
-                // Recherche par mots-clés communs
                 const inputWords = normalizedInput.split(' ').filter(w => w.length > 2);
                 const mappedWords = normalizedMapped.split(' ').filter(w => w.length > 2);
                 const commonWords = inputWords.filter(word => mappedWords.includes(word));
                 
-                if (commonWords.length >= 2) { // Au moins 2 mots en commun
+                if (commonWords.length >= 2) {
                     console.log(`🔍 Match par mots-clés: "${etablissementName}" ≈ "${mappedName}" → ${gestionnaire}`);
                     return gestionnaire;
                 }
@@ -224,7 +213,6 @@
             return 'Non spécifié';
         }
 
-        // MÉTHODE UTILITAIRE : Normaliser les noms d'établissements pour la comparaison
         normalizeEtablissementName(name) {
             return name
                 .toLowerCase()
@@ -247,7 +235,7 @@
             console.log('📊 Nombre d\'en-têtes:', headers.length);
             
             const mapping = {};
-            mapping.managerColumns = []; // indices des colonnes gestionnaires
+            mapping.managerColumns = [];
             mapping.checkboxGroups = {};
 
             headers.forEach((header, index) => {
@@ -256,12 +244,10 @@
                 
                 console.log(`📍 Colonne ${index}: "${h}"`);
 
-                // 1) Colonne "Sélectionnez votre établissement :"
                 if (h === 'Selectionnez votre établissement :') {
                     mapping.etablissement = index;
                     console.log(`  ✅ ETABLISSEMENT trouvé à l'index ${index}`);
                 }
-                // 2) Colonnes gestionnaires explicites
                 else if ([
                     'Ville de Strasbourg',
                     'AASBR [AASBR]',
@@ -275,27 +261,22 @@
                     mapping.managerColumns.push({ index: index, name: h });
                     console.log(`  ✅ GESTIONNAIRE "${h}" trouvé à l'index ${index}`);
                 }
-                // 3) Genre
                 else if (h === 'Vous êtes ?') {
                     mapping.genre = index;
                     console.log(`  ✅ GENRE trouvé à l'index ${index}`);
                 }
-                // 4) Âge du répondant
                 else if (h === 'Votre âge ?') {
                     mapping.age = index;
                     console.log(`  ✅ AGE trouvé à l'index ${index}`);
                 }
-                // 5) Catégorie socio-professionnelle
                 else if (h === 'Quelle est votre catégorie socio-professionnelle ?') {
                     mapping.csp = index;
                     console.log(`  ✅ CSP trouvé à l'index ${index}`);
                 }
-                // 6) Satisfaction globale - RECHERCHE ELARGIE
                 else if (h === 'Je suis satisfait.e de l\'accueil de mon enfant à la crèche ?') {
                     mapping.satisfaction = index;
                     console.log(`  🎯 SATISFACTION EXACTE trouvée à l'index ${index}`);
                 }
-                // RECHERCHE ELARGIE pour satisfaction
                 else if (h.toLowerCase().includes('satisfait') && h.toLowerCase().includes('crèche')) {
                     console.log(`  🎯 SATISFACTION POSSIBLE: "${h}" à l'index ${index}`);
                     if (!mapping.satisfaction) {
@@ -313,9 +294,7 @@
                 else if (h.toLowerCase().includes('satisfait')) {
                     console.log(`  🎯 CONTIENT "satisfait": "${h}" à l'index ${index}`);
                 }
-                // 7) Capturer toutes les colonnes "Si non, pourquoi ? [<suffix>]" pour former des groupes
                 else if (h.startsWith('Si non, pourquoi ?')) {
-                    // On extrait la base "Si non, pourquoi ?" pour normaliser
                     const base = 'Si non, pourquoi ?';
                     if (!mapping.checkboxGroups[base]) {
                         mapping.checkboxGroups[base] = [];
@@ -323,11 +302,8 @@
                     mapping.checkboxGroups[base].push({ index: index, option: h });
                     console.log(`  ✅ "Si non, pourquoi ?" trouvé à l'index ${index}`);
                 }
-                // 8) Tous les autres en-têtes considérés comme questions seules ou à choix multiples
-                //     Sera traité dynamiquement.
             });
 
-            // Trier chaque groupe checkbox par index croissant
             Object.values(mapping.checkboxGroups).forEach(arr =>
                 arr.sort((a, b) => a.index - b.index)
             );
@@ -400,7 +376,6 @@
             console.log('📊 Ligne de données:', row);
             console.log('🗂️ Mapping des colonnes:', columnMapping);
 
-            // 1) Établissement
             if (columnMapping.etablissement !== undefined) {
                 const val = row[columnMapping.etablissement];
                 if (val) {
@@ -409,14 +384,12 @@
                         response.etablissement = str;
                         console.log(`🏢 Établissement trouvé: "${str}"`);
                         
-                        // NOUVEAU : Utiliser le mapping de référence pour trouver le gestionnaire
                         response.gestionnaire = this.findGestionnaireForEtablissement(str);
                         console.log(`👥 Gestionnaire depuis mapping: "${response.gestionnaire}"`);
                     }
                 }
             }
 
-            // 2) Gestionnaire : SEULEMENT en fallback si pas de mapping
             if (response.gestionnaire === 'Non spécifié') {
                 for (const { index, name } of columnMapping.managerColumns) {
                     const val = row[index];
@@ -428,7 +401,6 @@
                 }
             }
 
-            // 3) Genre
             if (columnMapping.genre !== undefined) {
                 const val = row[columnMapping.genre];
                 if (val) {
@@ -439,7 +411,6 @@
                 }
             }
 
-            // 4) Âge du répondant
             if (columnMapping.age !== undefined) {
                 const val = row[columnMapping.age];
                 if (val) {
@@ -448,7 +419,6 @@
                 }
             }
 
-            // 5) CSP
             if (columnMapping.csp !== undefined) {
                 const val = row[columnMapping.csp];
                 if (val) {
@@ -457,7 +427,6 @@
                 }
             }
 
-            // 6) Satisfaction - DEBUGGING MASSIF
             console.log('🎯 === DEBUG SATISFACTION ===');
             console.log('📍 Index de satisfaction:', columnMapping.satisfaction);
             if (columnMapping.satisfaction !== undefined) {
@@ -479,14 +448,11 @@
                 });
             }
 
-            // 7) Parcourir toutes les colonnes (hors celles déjà traitées) dans l'ordre
             const processed = new Set();
             const checkboxGroups = columnMapping.checkboxGroups || {};
 
             for (let i = 0; i < headers.length; i++) {
-                // Ignorer si déjà traité
                 if (processed.has(i)) continue;
-                // Ignorer si c'est une colonne "simple" traitée plus haut
                 if (
                     i === columnMapping.etablissement ||
                     i === columnMapping.genre ||
@@ -502,7 +468,6 @@
                 const cellValue = row[i];
                 const cellStr = cellValue ? cellValue.toString().trim() : '';
 
-                // DEBUGGING: Chercher d'autres colonnes de satisfaction
                 if (header.toLowerCase().includes('satisfait')) {
                     console.log(`🎯 COLONNE SATISFACTION ADDITIONNELLE TROUVEE:`);
                     console.log(`  📍 Index: ${i}`);
@@ -510,7 +475,6 @@
                     console.log(`  📊 Valeur: "${cellStr}"`);
                 }
 
-                // 7a) Si c'est une colonne appartenant à un groupe de "Si non, pourquoi ?"
                 let matchedGroupKey = null;
                 let groupArray = null;
                 for (const base in checkboxGroups) {
@@ -521,16 +485,13 @@
                     }
                 }
                 if (matchedGroupKey) {
-                    // Construire la clé unique pour ce groupe
                     const normalizedKey = this.normalizeHeaderKey(matchedGroupKey);
                     const selectedOptions = [];
 
-                    // Pour chaque option du groupe "Si non, pourquoi ?"
                     groupArray.forEach(({ index, option }) => {
                         const v = row[index];
                         const s = v ? v.toString().trim() : '';
                         if (s && s.toLowerCase() !== 'sans réponse' && s.toLowerCase() !== 'n/a') {
-                            // On ajoute exactement le texte libre (suivi)
                             selectedOptions.push(`${option} : ${s}`);
                         }
                         processed.add(index);
@@ -551,7 +512,6 @@
                     continue;
                 }
 
-                // 7b) Traitement normal : si case non vide, on stocke
                 if (cellStr && cellStr.toLowerCase() !== 'sans réponse' && cellStr !== 'N/A') {
                     const key = this.normalizeHeaderKey(header);
                     response.additionalData[key] = {
@@ -568,7 +528,6 @@
                 }
             }
 
-            // 8) Trier columnOrder par index initial
             response.columnOrder.sort((a, b) => a.index - b.index);
 
             console.log('📤 Réponse finale extraite:', {
@@ -639,7 +598,6 @@
                 multiOptionsQuestions: {}
             };
 
-            // a) Comptages de base
             responses.forEach(r => {
                 stats.satisfaction[r.satisfaction] = (stats.satisfaction[r.satisfaction] || 0) + 1;
                 stats.gestionnaire[r.gestionnaire] = (stats.gestionnaire[r.gestionnaire] || 0) + 1;
@@ -647,7 +605,6 @@
                 stats.csp[r.csp] = (stats.csp[r.csp] || 0) + 1;
             });
 
-            // b) Pourcentages CSP
             const totalCSP = Object.values(stats.csp).reduce((a, b) => a + b, 0);
             Object.entries(stats.csp).forEach(([key, cnt]) => {
                 if (key !== 'Non spécifié' && totalCSP > 0) {
@@ -655,7 +612,6 @@
                 }
             });
 
-            // c) Collecter toutes les clés de questions dans l'ordre de colonnes
             const allKeys = new Set();
             const orderMap = new Map();
             responses.forEach(r => {
@@ -667,7 +623,6 @@
                 });
             });
 
-            // d) Trier par index, masquer B–I (1 à 8)
             const sortedKeys = Array.from(allKeys)
                 .filter(k => {
                     const idx = orderMap.get(k) || 0;
@@ -675,7 +630,6 @@
                 })
                 .sort((a, b) => (orderMap.get(a) || 0) - (orderMap.get(b) || 0));
 
-            // e) Analyser chaque question
             sortedKeys.forEach(key => {
                 const qData = this.analyzeQuestion(key, responses);
                 if (qData.totalResponses > 0) {
@@ -701,7 +655,6 @@
                 isMultiOptions: false
             };
 
-            // a) Récupérer en-tête original et index
             const firstWith = responses.find(r => r.additionalData[key]);
             if (firstWith) {
                 const info = firstWith.additionalData[key];
@@ -710,7 +663,6 @@
                 data.question = info.originalHeader;
             }
 
-            // Forcer certaines questions à être traitées comme ouvertes selon leur titre
             const questionLower = data.question.toLowerCase();
             const isDefinitelyOpen = questionLower.includes('remarques') || 
                                    questionLower.includes('suggestions') || 
@@ -720,12 +672,10 @@
                                    questionLower.includes('pourquoi') ||
                                    questionLower.includes('avez-vous des remarques');
 
-            // Si c'est définivement une question ouverte, forcer le flag
             if (isDefinitelyOpen) {
                 data.isOpenQuestion = true;
             }
 
-            // b) Parcourir chaque réponse
             responses.forEach(r => {
                 if (!r.additionalData[key]) return;
                 const info = r.additionalData[key];
@@ -734,7 +684,6 @@
 
                 data.totalResponses++;
 
-                // Si c'est définivement une question ouverte, traiter comme telle
                 if (isDefinitelyOpen) {
                     data.responsesList.push({
                         answer: ans,
@@ -745,7 +694,6 @@
                     return;
                 }
 
-                // Si chaîne contient plusieurs parties séparées par "; " => choix multiples
                 if (ans.includes(';')) {
                     data.isMultiOptions = true;
                     const parts = ans.split(';').map(p => p.trim()).filter(p => p);
@@ -759,7 +707,6 @@
                     return;
                 }
 
-                // Unique (fermé ou ouvert)
                 if (this.isClosedQuestion(ans)) {
                     const norm = this.normalizeClosedAnswer(ans);
                     data.answers[norm] = (data.answers[norm] || 0) + 1;
@@ -791,10 +738,8 @@
             ];
             const lower = ans.toLowerCase().trim();
             
-            // Si la réponse contient plus de 30 caractères, c'est probablement une question ouverte
             if (lower.length > 30) return false;
             
-            // Si la réponse contient des phrases complexes, c'est une question ouverte
             if (lower.includes(' et ') || lower.includes(' ou ') || lower.includes(' mais ') || 
                 lower.includes(' car ') || lower.includes(' pour ') || lower.includes(' avec ') ||
                 lower.includes(' dans ') || lower.includes(' sur ') || lower.includes(' par ') ||
@@ -803,7 +748,6 @@
                 return false;
             }
             
-            // Si la réponse contient des mots typiques de commentaires libres
             if (lower.includes('équipe') || lower.includes('creche') || lower.includes('crèche') ||
                 lower.includes('enfant') || lower.includes('directeur') || lower.includes('directrice') ||
                 lower.includes('personnel') || lower.includes('éducatrice') || lower.includes('merci') ||
@@ -829,7 +773,6 @@
             return ans.charAt(0).toUpperCase() + ans.slice(1).toLowerCase();
         }
 
-        // METHODE CORRIGEE avec normalisation des accents
         calculateSatisfactionPercentage(satData) {
             console.log('🔍 === CALCUL SATISFACTION AVEC NORMALISATION ACCENTS ===');
             console.log('📥 Données brutes reçues:', satData);
@@ -839,7 +782,6 @@
                 return 0;
             }
 
-            // Fonction pour normaliser les accents
             const normalizeAccents = (str) => {
                 return str
                     .toLowerCase()
@@ -855,7 +797,6 @@
                     .trim();
             };
 
-            // Nettoyer et normaliser les clés
             const normalizedData = {};
             Object.entries(satData).forEach(([key, value]) => {
                 if (key && value && typeof value === 'number' && value > 0) {
@@ -871,7 +812,6 @@
                 return 0;
             }
             
-            // Recherche avec normalisation des accents
             let tresSatisfaitCount = 0;
             let plutotSatisfaitCount = 0;
             let totalCount = 0;
@@ -882,7 +822,6 @@
                 const keyNormalized = normalizeAccents(key);
                 console.log(`🎯 "${key}" → "${keyNormalized}"`);
                 
-                // Tests avec accents normalisés
                 const isTres = keyNormalized.includes('tres');
                 const isPlutor = keyNormalized.includes('plutot');
                 const isSatisfait = keyNormalized.includes('satisfait');
@@ -947,14 +886,17 @@
         reset() {
             this.rawData = [];
             this.surveyData = {};
-            this.etablissementGestionnaireMap.clear(); // Reset du mapping
+            this.etablissementGestionnaireMap.clear();
         }
     }
 
-    // ===== UIRenderer Class =====
+    // ===== UIRenderer Class - VERSION TABLEAUX =====
     class UIRenderer {
         constructor() {
             this.currentEtablissement = null;
+            this.currentSort = { column: null, direction: 'asc' };
+            this.currentFilters = { gestionnaire: '', satisfaction: '', search: '' };
+            this.tableData = [];
         }
 
         getGestionnaireClass(gestionnaire) {
@@ -997,13 +939,6 @@
         showResults() {
             document.getElementById('results').style.display = 'block';
             this.hideOtherSections(['results']);
-            setTimeout(() => {
-                document.querySelectorAll('.satisfaction-fill').forEach(bar => {
-                    const w = bar.style.width;
-                    bar.style.width = '0%';
-                    setTimeout(() => (bar.style.width = w), 100);
-                });
-            }, 100);
         }
 
         hideOtherSections(except = []) {
@@ -1037,11 +972,9 @@
             Object.values(surveyData).forEach(d => {
                 console.log('Données satisfaction pour établissement:', d.satisfaction);
                 
-                // Utiliser la méthode robuste de calcul
                 const analyzer = new DataAnalyzer();
                 const etabSatPercentage = analyzer.calculateSatisfactionPercentage(d.satisfaction);
                 
-                // Compter les totaux pour le calcul global
                 const validResponses = Object.entries(d.satisfaction)
                     .filter(([key]) => {
                         const keyLower = key.toLowerCase().replace(/[^a-z\s]/g, '');
@@ -1078,269 +1011,403 @@
             document.getElementById('date-enquete').textContent = range;
         }
 
+        // NOUVELLE MÉTHODE : Préparer les données pour les tableaux
+        prepareTableData(surveyData, analyzer) {
+            this.tableData = Object.entries(surveyData).map(([name, data]) => ({
+                id: name,
+                etablissement: name,
+                gestionnaire: Object.keys(data.gestionnaire)[0] || 'Non spécifié',
+                satisfaction: analyzer.calculateSatisfactionPercentage(data.satisfaction),
+                totalReponses: data.totalReponses,
+                genres: this.formatGenres(data.genre),
+                csp: this.formatCSP(data.cspPercentages),
+                satisfactionDetail: this.formatSatisfactionDetails(data.satisfaction),
+                data: data
+            }));
+        }
+
+        // NOUVELLE MÉTHODE : Rendu principal des établissements avec tableaux
         renderEtablissements(surveyData, analyzer) {
-            // Utiliser la nouvelle méthode avec vue par défaut
-            this.renderEtablissementsByView(surveyData, analyzer, 'etablissements');
+            this.prepareTableData(surveyData, analyzer);
+            this.renderTableView(surveyData, analyzer, 'etablissements');
         }
 
+        // NOUVELLE MÉTHODE : Rendu par type de vue
         renderEtablissementsByView(surveyData, analyzer, viewType) {
+            this.prepareTableData(surveyData, analyzer);
+            this.renderTableView(surveyData, analyzer, viewType);
+        }
+
+        // NOUVELLE MÉTHODE : Rendu principal des tableaux
+        renderTableView(surveyData, analyzer, viewType) {
             const container = document.getElementById('etablissements-container');
-            
-            let sortedData = [];
-            let sectionTitle = '';
-            
-            switch (viewType) {
-                case 'satisfaction':
-                    sortedData = this.sortBySatisfaction(surveyData, analyzer);
-                    sectionTitle = '📊 Classement par taux de satisfaction';
-                    break;
-                case 'gestionnaires':
-                    sortedData = this.sortByGestionnaire(surveyData, analyzer);
-                    sectionTitle = '👥 Classement par gestionnaires';
-                    break;
-                case 'repondants':
-                    sortedData = this.sortByRepondants(surveyData, analyzer);
-                    sectionTitle = '📈 Classement par nombre de répondants';
-                    break;
-                case 'tableaux':
-                    this.renderTableView(container, surveyData, analyzer);
-                    return; // Sort early for table view
-                default:
-                    sortedData = this.sortByEtablissement(surveyData, analyzer);
-                    sectionTitle = '📋 Liste des établissements';
-            }
-            
-            this.renderSortedEtablissements(container, sortedData, sectionTitle, viewType);
-        }
-
-        renderTableView(container, surveyData, analyzer) {
             container.innerHTML = '';
-            container.className = 'table-view';
+            container.className = 'table-view-container';
+
+            // Titre et contrôles
+            this.renderTableControls(container, viewType);
             
-            // Titre de section
-            const titleElement = document.createElement('div');
-            titleElement.className = 'section-title';
-            titleElement.innerHTML = `<h3>📋 Vue d'ensemble en tableaux</h3>`;
-            container.appendChild(titleElement);
-            
-            // Table de synthèse globale
-            this.createSummaryTable(container, surveyData, analyzer);
-            
-            // Tables détaillées par gestionnaire
-            this.createDetailedTables(container, surveyData, analyzer);
+            // Table principale
+            this.renderMainTable(container, viewType);
         }
 
-        createSummaryTable(container, surveyData, analyzer) {
-            const summaryTitle = document.createElement('h4');
-            summaryTitle.textContent = '📊 Synthèse globale';
-            summaryTitle.style.marginBottom = '15px';
-            summaryTitle.style.color = '#333';
-            container.appendChild(summaryTitle);
+        // NOUVELLE MÉTHODE : Contrôles et filtres
+        renderTableControls(container, viewType) {
+            const controlsDiv = document.createElement('div');
+            controlsDiv.className = 'table-controls';
+            controlsDiv.innerHTML = `
+                <div class="table-controls-header">
+                    <h3 class="table-title">${this.getViewTitle(viewType)}</h3>
+                    <div class="table-actions-top">
+                        <button class="table-action-btn export-all" onclick="window.surveyApp.exportResults()">
+                            📊 Exporter tout en JSON
+                        </button>
+                    </div>
+                </div>
+                <div class="table-filters">
+                    <div class="filter-group">
+                        <label for="search-filter">🔍 Rechercher:</label>
+                        <input type="text" id="search-filter" placeholder="Nom d'établissement...">
+                    </div>
+                    <div class="filter-group">
+                        <label for="gestionnaire-filter">👥 Gestionnaire:</label>
+                        <select id="gestionnaire-filter">
+                            <option value="">Tous les gestionnaires</option>
+                            ${this.getGestionnaireOptions()}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="satisfaction-filter">📊 Satisfaction:</label>
+                        <select id="satisfaction-filter">
+                            <option value="">Tous les niveaux</option>
+                            <option value="excellent">Excellente (≥90%)</option>
+                            <option value="good">Bonne (75-89%)</option>
+                            <option value="average">Moyenne (50-74%)</option>
+                            <option value="poor">Faible (<50%)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <button id="clear-filters" class="clear-filters-btn">🗑️ Effacer les filtres</button>
+                    </div>
+                </div>
+            `;
             
-            // Préparer les données
-            const tableData = Object.entries(surveyData)
-                .map(([name, data]) => ({
-                    name,
-                    data,
-                    satisfaction: analyzer.calculateSatisfactionPercentage(data.satisfaction),
-                    gestionnaire: Object.keys(data.gestionnaire)[0] || 'Non spécifié',
-                    totalReponses: data.totalReponses,
-                    genres: this.formatGenres(data.genre),
-                    csp: this.formatCSP(data.cspPercentages)
-                }))
-                .sort((a, b) => b.satisfaction - a.satisfaction);
+            container.appendChild(controlsDiv);
             
-            // Créer le tableau
+            // Événements des filtres
+            this.setupFilterEvents();
+        }
+
+        // NOUVELLE MÉTHODE : Table principale
+        renderMainTable(container, viewType) {
+            const tableContainer = document.createElement('div');
+            tableContainer.className = 'main-table-container';
+            
             const table = document.createElement('table');
-            table.className = 'summary-table';
+            table.className = 'main-data-table';
+            table.id = 'main-data-table';
             
-            // En-tête
+            // En-tête avec tri
             table.innerHTML = `
                 <thead>
                     <tr>
-                        <th style="min-width: 200px;">Établissement</th>
-                        <th style="min-width: 120px;">Gestionnaire</th>
-                        <th style="text-align: center; min-width: 80px;">Satisfaction</th>
-                        <th style="text-align: center; min-width: 80px;">Réponses</th>
-                        <th style="min-width: 120px;">Genres</th>
-                        <th style="min-width: 150px;">CSP principales</th>
-                        <th style="text-align: center; min-width: 100px;">Actions</th>
+                        <th data-sort="etablissement" class="sortable">
+                            <span>Établissement</span>
+                            <span class="sort-indicator"></span>
+                        </th>
+                        <th data-sort="gestionnaire" class="sortable">
+                            <span>Gestionnaire</span>
+                            <span class="sort-indicator"></span>
+                        </th>
+                        <th data-sort="satisfaction" class="sortable text-center">
+                            <span>Satisfaction</span>
+                            <span class="sort-indicator"></span>
+                        </th>
+                        <th data-sort="totalReponses" class="sortable text-center">
+                            <span>Réponses</span>
+                            <span class="sort-indicator"></span>
+                        </th>
+                        <th class="text-center">Genres</th>
+                        <th class="text-center">CSP principales</th>
+                        <th class="text-center">Détail satisfaction</th>
+                        <th class="text-center">Actions</th>
                     </tr>
                 </thead>
-                <tbody></tbody>
+                <tbody id="table-body">
+                </tbody>
             `;
             
-            const tbody = table.querySelector('tbody');
+            tableContainer.appendChild(table);
+            container.appendChild(tableContainer);
             
-            // Lignes de données
-            tableData.forEach((item, index) => {
-                const satisfactionClass = this.getSatisfactionClass(item.satisfaction);
-                const gestionnaireClass = this.getGestionnaireClass(item.gestionnaire);
-                
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td data-label="Établissement" style="font-weight: 600;">${item.name}</td>
-                    <td data-label="Gestionnaire">
-                        <span class="table-gestionnaire ${gestionnaireClass}">
-                            ${item.gestionnaire}
-                        </span>
-                    </td>
-                    <td data-label="Satisfaction" style="text-align: center;">
+            // Remplir le tableau
+            this.updateTableBody();
+            
+            // Événements de tri
+            this.setupSortEvents();
+            
+            // Tri initial selon la vue
+            this.applySortForView(viewType);
+        }
+
+        // NOUVELLE MÉTHODE : Mise à jour du corps du tableau
+        updateTableBody() {
+            const tbody = document.getElementById('table-body');
+            if (!tbody) return;
+            
+            // Appliquer les filtres
+            const filteredData = this.applyFilters(this.tableData);
+            
+            // Appliquer le tri
+            const sortedData = this.applySorting(filteredData);
+            
+            // Générer les lignes
+            tbody.innerHTML = '';
+            
+            if (sortedData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="no-data">
+                            <div class="no-data-message">
+                                <span class="no-data-icon">🔍</span>
+                                <p>Aucun établissement ne correspond aux critères de filtrage.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            sortedData.forEach((item, index) => {
+                const row = this.createTableRow(item, index);
+                tbody.appendChild(row);
+            });
+        }
+
+        // NOUVELLE MÉTHODE : Créer une ligne de tableau
+        createTableRow(item, index) {
+            const row = document.createElement('tr');
+            row.className = index % 2 === 0 ? 'even-row' : 'odd-row';
+            
+            const satisfactionClass = this.getSatisfactionClass(item.satisfaction);
+            const gestionnaireClass = this.getGestionnaireClass(item.gestionnaire);
+            
+            row.innerHTML = `
+                <td class="etablissement-cell">
+                    <div class="etablissement-name">${item.etablissement}</div>
+                </td>
+                <td class="gestionnaire-cell">
+                    <span class="table-gestionnaire ${gestionnaireClass}">
+                        ${item.gestionnaire}
+                    </span>
+                </td>
+                <td class="satisfaction-cell text-center">
+                    <div class="satisfaction-display">
                         <span class="table-satisfaction ${satisfactionClass}">
                             ${item.satisfaction}%
                         </span>
-                    </td>
-                    <td data-label="Réponses" style="text-align: center; font-weight: 600;">
-                        ${item.totalReponses}
-                    </td>
-                    <td data-label="Genres" style="font-size: 0.85rem;">
-                        ${item.genres}
-                    </td>
-                    <td data-label="CSP" style="font-size: 0.85rem;">
-                        ${item.csp}
-                    </td>
-                    <td data-label="Actions" style="text-align: center;">
-                        <div class="table-actions">
-                            <button class="table-btn details" onclick="window.surveyApp.showDetails('${item.name}')">
-                                👁️ Voir
-                            </button>
-                            <button class="table-btn pdf" onclick="window.surveyApp.exportEtablissementToPDF('${item.name}')">
-                                📄 PDF
-                            </button>
+                        <div class="satisfaction-bar-mini">
+                            <div class="satisfaction-fill-mini" style="width: ${item.satisfaction}%"></div>
                         </div>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-            
-            container.appendChild(table);
-        }
-
-        createDetailedTables(container, surveyData, analyzer) {
-            // Grouper par gestionnaire
-            const groupedData = this.groupByGestionnaire(surveyData, analyzer);
-            
-            Object.entries(groupedData).forEach(([gestionnaire, etablissements]) => {
-                const section = document.createElement('div');
-                section.className = 'gestionnaire-table-section';
-                
-                // En-tête de gestionnaire
-                const gestionnaireClass = this.getGestionnaireClass(gestionnaire);
-                const totalEtab = etablissements.length;
-                const totalReponses = etablissements.reduce((sum, etab) => sum + etab.totalReponses, 0);
-                const avgSatisfaction = Math.round(
-                    etablissements.reduce((sum, etab) => sum + etab.satisfaction, 0) / totalEtab
-                );
-                
-                const header = document.createElement('div');
-                header.className = `gestionnaire-table-header ${gestionnaireClass}`;
-                header.innerHTML = `
-                    <h4 class="gestionnaire-table-title">👥 ${gestionnaire}</h4>
-                    <div class="gestionnaire-table-stats">
-                        ${totalEtab} établissement${totalEtab > 1 ? 's' : ''} • 
-                        ${totalReponses} réponses • 
-                        ${avgSatisfaction}% satisfaction moyenne
                     </div>
-                `;
-                section.appendChild(header);
-                
-                // Table pour ce gestionnaire
-                const table = document.createElement('table');
-                table.className = 'summary-table';
-                table.style.borderRadius = '0 0 10px 10px';
-                
-                table.innerHTML = `
-                    <thead style="display: none;">
-                        <tr>
-                            <th>Établissement</th>
-                            <th>Satisfaction</th>
-                            <th>Réponses</th>
-                            <th>Détails satisfaction</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                `;
-                
-                const tbody = table.querySelector('tbody');
-                
-                etablissements
-                    .sort((a, b) => b.satisfaction - a.satisfaction)
-                    .forEach((item, index) => {
-                        const satisfactionClass = this.getSatisfactionClass(item.satisfaction);
-                        const detailSat = this.formatSatisfactionDetails(item.data.satisfaction);
-                        
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td data-label="Établissement" style="font-weight: 600; width: 35%;">${item.name}</td>
-                            <td data-label="Satisfaction" style="text-align: center; width: 15%;">
-                                <span class="table-satisfaction ${satisfactionClass}">
-                                    ${item.satisfaction}%
-                                </span>
-                            </td>
-                            <td data-label="Réponses" style="text-align: center; width: 10%; font-weight: 600;">
-                                ${item.totalReponses}
-                            </td>
-                            <td data-label="Détails" style="font-size: 0.85rem; width: 25%;">
-                                ${detailSat}
-                            </td>
-                            <td data-label="Actions" style="text-align: center; width: 15%;">
-                                <div class="table-actions">
-                                    <button class="table-btn details" onclick="window.surveyApp.showDetails('${item.name}')">
-                                        👁️ Voir
-                                    </button>
-                                    <button class="table-btn pdf" onclick="window.surveyApp.exportEtablissementToPDF('${item.name}')">
-                                        📄 PDF
-                                    </button>
-                                </div>
-                            </td>
-                        `;
-                        tbody.appendChild(row);
-                    });
-                
-                section.appendChild(table);
-                container.appendChild(section);
-            });
+                </td>
+                <td class="reponses-cell text-center">
+                    <span class="reponses-count">${item.totalReponses}</span>
+                </td>
+                <td class="genres-cell text-center">
+                    <div class="data-cell-content">${item.genres}</div>
+                </td>
+                <td class="csp-cell text-center">
+                    <div class="data-cell-content">${item.csp}</div>
+                </td>
+                <td class="satisfaction-detail-cell text-center">
+                    <div class="data-cell-content satisfaction-detail">${item.satisfactionDetail}</div>
+                </td>
+                <td class="actions-cell text-center">
+                    <div class="table-actions">
+                        <button class="table-btn details" onclick="window.surveyApp.showDetails('${item.etablissement}')" title="Voir les détails">
+                            👁️
+                        </button>
+                        <button class="table-btn pdf" onclick="window.surveyApp.exportEtablissementToPDF('${item.etablissement}')" title="Exporter en PDF">
+                            📄
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            return row;
         }
 
-        groupByGestionnaire(surveyData, analyzer) {
-            const grouped = {};
+        // NOUVELLE MÉTHODE : Événements des filtres
+        setupFilterEvents() {
+            const searchFilter = document.getElementById('search-filter');
+            const gestionnaireFilter = document.getElementById('gestionnaire-filter');
+            const satisfactionFilter = document.getElementById('satisfaction-filter');
+            const clearFiltersBtn = document.getElementById('clear-filters');
             
-            Object.entries(surveyData).forEach(([name, data]) => {
-                const gestionnaire = Object.keys(data.gestionnaire)[0] || 'Autres ou vides';
-                if (!grouped[gestionnaire]) {
-                    grouped[gestionnaire] = [];
-                }
-                
-                grouped[gestionnaire].push({
-                    name,
-                    data,
-                    satisfaction: analyzer.calculateSatisfactionPercentage(data.satisfaction),
-                    totalReponses: data.totalReponses
+            const updateFilters = () => {
+                this.currentFilters = {
+                    search: searchFilter.value.toLowerCase(),
+                    gestionnaire: gestionnaireFilter.value,
+                    satisfaction: satisfactionFilter.value
+                };
+                this.updateTableBody();
+            };
+            
+            if (searchFilter) {
+                searchFilter.addEventListener('input', updateFilters);
+            }
+            if (gestionnaireFilter) {
+                gestionnaireFilter.addEventListener('change', updateFilters);
+            }
+            if (satisfactionFilter) {
+                satisfactionFilter.addEventListener('change', updateFilters);
+            }
+            if (clearFiltersBtn) {
+                clearFiltersBtn.addEventListener('click', () => {
+                    searchFilter.value = '';
+                    gestionnaireFilter.value = '';
+                    satisfactionFilter.value = '';
+                    this.currentFilters = { search: '', gestionnaire: '', satisfaction: '' };
+                    this.updateTableBody();
+                });
+            }
+        }
+
+        // NOUVELLE MÉTHODE : Événements de tri
+        setupSortEvents() {
+            const sortableHeaders = document.querySelectorAll('.sortable');
+            sortableHeaders.forEach(header => {
+                header.addEventListener('click', () => {
+                    const column = header.dataset.sort;
+                    this.toggleSort(column);
                 });
             });
+        }
+
+        // NOUVELLE MÉTHODE : Basculer le tri
+        toggleSort(column) {
+            if (this.currentSort.column === column) {
+                this.currentSort.direction = this.currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.currentSort.column = column;
+                this.currentSort.direction = 'asc';
+            }
             
-            // Trier les gestionnaires dans l'ordre souhaité
-            const orderedGestionnaires = [
-                'Ville de Strasbourg',
-                'AASBR [AASBR]',
-                'AGES',
-                'AGF', 
-                'ALEF',
-                'Fondation d\'Auteuil',
-                'Fossé des treize',
-                'APEDI',
-                'Autres ou vides'
-            ];
-            
-            const orderedGrouped = {};
-            orderedGestionnaires.forEach(gestionnaire => {
-                if (grouped[gestionnaire]) {
-                    orderedGrouped[gestionnaire] = grouped[gestionnaire];
-                }
+            this.updateSortIndicators();
+            this.updateTableBody();
+        }
+
+        // NOUVELLE MÉTHODE : Indicateurs de tri
+        updateSortIndicators() {
+            document.querySelectorAll('.sort-indicator').forEach(indicator => {
+                indicator.textContent = '';
+                indicator.parentElement.classList.remove('sorted-asc', 'sorted-desc');
             });
             
-            return orderedGrouped;
+            if (this.currentSort.column) {
+                const activeHeader = document.querySelector(`[data-sort="${this.currentSort.column}"]`);
+                if (activeHeader) {
+                    const indicator = activeHeader.querySelector('.sort-indicator');
+                    indicator.textContent = this.currentSort.direction === 'asc' ? '↑' : '↓';
+                    activeHeader.classList.add(`sorted-${this.currentSort.direction}`);
+                }
+            }
+        }
+
+        // NOUVELLE MÉTHODE : Appliquer les filtres
+        applyFilters(data) {
+            return data.filter(item => {
+                // Filtre de recherche
+                if (this.currentFilters.search && 
+                    !item.etablissement.toLowerCase().includes(this.currentFilters.search)) {
+                    return false;
+                }
+                
+                // Filtre gestionnaire
+                if (this.currentFilters.gestionnaire && 
+                    item.gestionnaire !== this.currentFilters.gestionnaire) {
+                    return false;
+                }
+                
+                // Filtre satisfaction
+                if (this.currentFilters.satisfaction) {
+                    const satisfactionClass = this.getSatisfactionClass(item.satisfaction);
+                    if (satisfactionClass !== this.currentFilters.satisfaction) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+        }
+
+        // NOUVELLE MÉTHODE : Appliquer le tri
+        applySorting(data) {
+            if (!this.currentSort.column) return data;
+            
+            return [...data].sort((a, b) => {
+                let aVal = a[this.currentSort.column];
+                let bVal = b[this.currentSort.column];
+                
+                // Traitement spécial pour les nombres
+                if (this.currentSort.column === 'satisfaction' || this.currentSort.column === 'totalReponses') {
+                    aVal = Number(aVal);
+                    bVal = Number(bVal);
+                }
+                
+                // Traitement spécial pour les chaînes
+                if (typeof aVal === 'string' && typeof bVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+                
+                let result = 0;
+                if (aVal < bVal) result = -1;
+                else if (aVal > bVal) result = 1;
+                
+                return this.currentSort.direction === 'desc' ? -result : result;
+            });
+        }
+
+        // NOUVELLE MÉTHODE : Tri initial selon la vue
+        applySortForView(viewType) {
+            switch (viewType) {
+                case 'satisfaction':
+                    this.currentSort = { column: 'satisfaction', direction: 'desc' };
+                    break;
+                case 'gestionnaires':
+                    this.currentSort = { column: 'gestionnaire', direction: 'asc' };
+                    break;
+                case 'repondants':
+                    this.currentSort = { column: 'totalReponses', direction: 'desc' };
+                    break;
+                default:
+                    this.currentSort = { column: 'etablissement', direction: 'asc' };
+            }
+            this.updateSortIndicators();
+            this.updateTableBody();
+        }
+
+        // MÉTHODES UTILITAIRES
+        getViewTitle(viewType) {
+            const titles = {
+                'etablissements': '📋 Liste des établissements',
+                'satisfaction': '📊 Classement par satisfaction',
+                'gestionnaires': '👥 Groupement par gestionnaires',
+                'repondants': '📈 Classement par nombre de répondants',
+                'tableaux': '📋 Vue d\'ensemble'
+            };
+            return titles[viewType] || '📋 Établissements';
+        }
+
+        getGestionnaireOptions() {
+            const gestionnaires = [...new Set(this.tableData.map(item => item.gestionnaire))];
+            return gestionnaires
+                .filter(g => g !== 'Non spécifié')
+                .sort()
+                .map(g => `<option value="${g}">${g}</option>`)
+                .join('');
         }
 
         getSatisfactionClass(satisfaction) {
@@ -1360,7 +1427,7 @@
         formatCSP(cspPercentages) {
             return Object.entries(cspPercentages)
                 .sort((a, b) => b[1] - a[1])
-                .slice(0, 2) // Top 2 CSP
+                .slice(0, 2)
                 .map(([csp, pct]) => `${csp}: ${pct}%`)
                 .join(', ') || 'Non spécifié';
         }
@@ -1379,242 +1446,7 @@
                 .join(' • ') || 'Aucune donnée';
         }
 
-        sortBySatisfaction(surveyData, analyzer) {
-            return Object.entries(surveyData)
-                .map(([name, data]) => ({
-                    name,
-                    data,
-                    satisfaction: analyzer.calculateSatisfactionPercentage(data.satisfaction),
-                    gestionnaire: Object.keys(data.gestionnaire)[0] || 'Non spécifié',
-                    totalReponses: data.totalReponses
-                }))
-                .sort((a, b) => b.satisfaction - a.satisfaction);
-        }
-
-        sortByGestionnaire(surveyData, analyzer) {
-            const gestionnaireOrder = [
-                'Ville de Strasbourg',
-                'AASBR [AASBR]',
-                'AGES', 
-                'AGF',
-                'ALEF',
-                'Fondation d\'Auteuil',
-                'Fossé des treize',
-                'APEDI'
-            ];
-            
-            return Object.entries(surveyData)
-                .map(([name, data]) => ({
-                    name,
-                    data,
-                    satisfaction: analyzer.calculateSatisfactionPercentage(data.satisfaction),
-                    gestionnaire: Object.keys(data.gestionnaire)[0] || 'Autres ou vides',
-                    totalReponses: data.totalReponses
-                }))
-                .sort((a, b) => {
-                    const indexA = gestionnaireOrder.indexOf(a.gestionnaire);
-                    const indexB = gestionnaireOrder.indexOf(b.gestionnaire);
-                    
-                    // Si les deux gestionnaires sont dans la liste
-                    if (indexA !== -1 && indexB !== -1) {
-                        return indexA - indexB;
-                    }
-                    // Si seul A est dans la liste
-                    if (indexA !== -1) return -1;
-                    // Si seul B est dans la liste  
-                    if (indexB !== -1) return 1;
-                    // Si aucun n'est dans la liste, trier par nom
-                    return a.gestionnaire.localeCompare(b.gestionnaire);
-                });
-        }
-
-        sortByRepondants(surveyData, analyzer) {
-            return Object.entries(surveyData)
-                .map(([name, data]) => ({
-                    name,
-                    data,
-                    satisfaction: analyzer.calculateSatisfactionPercentage(data.satisfaction),
-                    gestionnaire: Object.keys(data.gestionnaire)[0] || 'Non spécifié',
-                    totalReponses: data.totalReponses
-                }))
-                .sort((a, b) => b.totalReponses - a.totalReponses);
-        }
-
-        sortByEtablissement(surveyData, analyzer) {
-            return Object.entries(surveyData)
-                .map(([name, data]) => ({
-                    name,
-                    data,
-                    satisfaction: analyzer.calculateSatisfactionPercentage(data.satisfaction),
-                    gestionnaire: Object.keys(data.gestionnaire)[0] || 'Non spécifié',
-                    totalReponses: data.totalReponses
-                }))
-                .sort((a, b) => a.name.localeCompare(b.name));
-        }
-
-        renderSortedEtablissements(container, sortedData, sectionTitle, viewType) {
-            container.innerHTML = '';
-            container.className = 'etablissements-grid'; // Reset to default class
-            
-            // Titre de section
-            const titleElement = document.createElement('div');
-            titleElement.className = 'section-title';
-            titleElement.innerHTML = `<h3>${sectionTitle}</h3>`;
-            container.appendChild(titleElement);
-            
-            // Regroupement par gestionnaire pour la vue gestionnaires
-            if (viewType === 'gestionnaires') {
-                this.renderByGestionnaire(container, sortedData);
-            } else {
-                this.renderSimpleList(container, sortedData, viewType);
-            }
-        }
-
-        renderByGestionnaire(container, sortedData) {
-            const groupedByGestionnaire = {};
-            
-            sortedData.forEach(item => {
-                const gestionnaire = item.gestionnaire;
-                if (!groupedByGestionnaire[gestionnaire]) {
-                    groupedByGestionnaire[gestionnaire] = [];
-                }
-                groupedByGestionnaire[gestionnaire].push(item);
-            });
-            
-            Object.entries(groupedByGestionnaire).forEach(([gestionnaire, etablissements]) => {
-                // En-tête de gestionnaire
-                const gestionnaireHeader = document.createElement('div');
-                gestionnaireHeader.className = 'gestionnaire-header';
-                
-                // Calculer les stats du gestionnaire
-                const totalEtab = etablissements.length;
-                const totalReponses = etablissements.reduce((sum, etab) => sum + etab.totalReponses, 0);
-                const avgSatisfaction = Math.round(
-                    etablissements.reduce((sum, etab) => sum + etab.satisfaction, 0) / totalEtab
-                );
-                
-                gestionnaireHeader.innerHTML = `
-                    <div class="gestionnaire-title ${this.getGestionnaireClass(gestionnaire)}">
-                        <h4>👥 ${gestionnaire}</h4>
-                        <div class="gestionnaire-stats">
-                            <span class="stat-badge">${totalEtab} établissement${totalEtab > 1 ? 's' : ''}</span>
-                            <span class="stat-badge">${totalReponses} réponses</span>
-                            <span class="stat-badge satisfaction">${avgSatisfaction}% satisfaction</span>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(gestionnaireHeader);
-                
-                // Grille des établissements pour ce gestionnaire
-                const gestionnaireGrid = document.createElement('div');
-                gestionnaireGrid.className = 'gestionnaire-grid';
-                
-                etablissements.forEach(item => {
-                    const card = this.createEtablissementCard(item);
-                    gestionnaireGrid.appendChild(card);
-                });
-                
-                container.appendChild(gestionnaireGrid);
-            });
-        }
-
-        renderSimpleList(container, sortedData, viewType) {
-            const grid = document.createElement('div');
-            grid.className = 'etablissements-simple-grid';
-            
-            sortedData.forEach((item, index) => {
-                const showRank = viewType === 'satisfaction' || viewType === 'repondants';
-                const card = this.createEtablissementCard(item, showRank ? index + 1 : null);
-                grid.appendChild(card);
-            });
-            
-            container.appendChild(grid);
-        }
-
-        createEtablissementCard(item, rank = null) {
-            const { name, data, satisfaction, gestionnaire, totalReponses } = item;
-            const gestClass = this.getGestionnaireClass(gestionnaire);
-            
-            const card = document.createElement('div');
-            card.className = 'etablissement-card';
-            
-            let rankBadge = '';
-            if (rank !== null) {
-                let rankClass = '';
-                let rankIcon = '';
-                if (rank <= 3) {
-                    rankClass = 'rank-top';
-                    rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
-                } else if (rank <= 10) {
-                    rankClass = 'rank-good';
-                    rankIcon = '⭐';
-                } else {
-                    rankClass = 'rank-normal';
-                    rankIcon = '#';
-                }
-                
-                rankBadge = `<div class="rank-badge ${rankClass}">${rankIcon}${rank}</div>`;
-            }
-            
-            card.innerHTML = `
-                ${rankBadge}
-                <div class="card-header ${gestClass}">
-                    <h3>${name}</h3>
-                    <span class="gestionnaire-badge">${gestionnaire}</span>
-                </div>
-                <div class="card-content">
-                    <div class="metric">
-                        <div class="metric-label">📊 Satisfaction globale</div>
-                        <div class="metric-value">${satisfaction}%</div>
-                        <div class="satisfaction-bar">
-                            <div class="satisfaction-fill" style="width: ${satisfaction}%"></div>
-                        </div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">📋 Nombre de réponses</div>
-                        <div class="metric-value">${totalReponses}</div>
-                    </div>
-                    <div class="details-grid">
-                        <div class="detail-item">
-                            <div class="detail-label">👤 Genre des répondants</div>
-                            <div class="detail-value">
-                                ${Object.entries(data.genre)
-                                    .filter(([g]) => g !== 'Non spécifié')
-                                    .map(([g, c]) => `${g}: ${c}`)
-                                    .join('<br>') || 'Non spécifié'}
-                            </div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">💼 Catégories socio-prof.</div>
-                            <div class="detail-value">
-                                ${Object.entries(data.cspPercentages)
-                                    .map(([csp, pct]) => `${csp}: ${pct}%`)
-                                    .join('<br>') || 'Non spécifié'}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">📈 Détail satisfaction</div>
-                        <div style="font-size:0.9rem;color:#666;margin-top:5px;">
-                            ${Object.entries(data.satisfaction)
-                                .map(([lvl, cnt]) => `${lvl}: ${cnt} réponse${cnt > 1 ? 's' : ''}`)
-                                .join(' • ')}
-                        </div>
-                    </div>
-                    <div class="card-actions">
-                        <button class="card-action-btn" onclick="window.surveyApp.showDetails('${name}')">
-                            📋 Détails
-                        </button>
-                        <button class="card-action-btn export" onclick="window.surveyApp.exportEtablissementToPDF('${name}')">
-                            📄 PDF
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            return card;
-        }
-
+        // MÉTHODES MODAL (inchangées)
         showModal(name) {
             this.currentEtablissement = name;
             document.getElementById('modal-title').textContent = `Détails - ${name}`;
@@ -1763,12 +1595,10 @@
             y = 60;
             y = this.addGeneralInfo(doc, y, name, gest, data, analyzer);
 
-            // Construire liste des questions dans l'ordre des colonnes
             const ordered = Object.entries(data.questionStats)
                 .map(([key, qData]) => ({ key, idx: qData.columnIndex, qData }))
                 .sort((a, b) => a.idx - b.idx);
 
-            // Afficher chaque question
             ordered.forEach(({ key, qData }) => {
                 if (qData.totalResponses === 0) return;
                 if (y > 200) {
@@ -1940,7 +1770,6 @@
             this.fileHandler = new FileHandler();
             this.dataAnalyzer = new DataAnalyzer();
             this.uiRenderer = new UIRenderer();
-            // Utiliser la classe PDF améliorée si disponible, sinon l'ancienne
             this.pdfExporter = window.AdvancedPDFExporter ? new window.AdvancedPDFExporter() : new PDFExporter();
             this.initializeEventListeners();
             console.log('✅ Application initialisée avec', window.AdvancedPDFExporter ? 'AdvancedPDFExporter' : 'PDFExporter basique');
@@ -1958,7 +1787,6 @@
             const closeModal = document.getElementById('close-modal');
             const exportPdfBtn = document.getElementById('export-pdf-btn');
 
-            // NOUVEAUX ÉLÉMENTS : Fichier de mapping
             const mappingInput = document.getElementById('mapping-input');
             const selectMappingBtn = document.getElementById('select-mapping-btn');
             const mappingUploadArea = document.getElementById('mapping-upload-area');
@@ -1972,7 +1800,6 @@
                 uploadArea.addEventListener('drop', e => this.handleDrop(e));
             }
 
-            // NOUVEAUX EVENT LISTENERS : Mapping gestionnaires
             if (selectMappingBtn) selectMappingBtn.addEventListener('click', () => mappingInput.click());
             if (mappingInput) mappingInput.addEventListener('change', e => this.handleMappingFileSelect(e.target.files[0]));
             if (downloadTemplateBtn) downloadTemplateBtn.addEventListener('click', () => this.downloadMappingTemplate());
@@ -1989,7 +1816,6 @@
             if (closeModal) closeModal.addEventListener('click', () => this.closeModal());
             if (exportPdfBtn) exportPdfBtn.addEventListener('click', () => this.exportCurrentEtablissementToPDF());
             
-            // Gestionnaire pour les onglets de vue
             document.addEventListener('click', (e) => {
                 if (e.target.classList.contains('tab-btn')) {
                     this.switchView(e.target.dataset.view);
@@ -2001,7 +1827,6 @@
             });
         }
 
-        // NOUVELLES MÉTHODES : Gestion du fichier de mapping
         handleMappingFileSelect(file) {
             if (!file) return;
 
@@ -2021,7 +1846,6 @@
                 const mappedCount = await this.dataAnalyzer.loadEtablissementMapping(file);
                 this.showMappingStatus(`✅ ${mappedCount} établissements mappés`);
                 
-                // Afficher un aperçu du mapping dans la console pour vérification
                 console.log('📋 === APERÇU DU MAPPING CHARGÉ ===');
                 const mapping = this.dataAnalyzer.etablissementGestionnaireMap;
                 const preview = Array.from(mapping.entries()).slice(0, 10);
@@ -2076,9 +1900,7 @@
             document.getElementById('mapping-info').style.display = 'none';
         }
 
-        // MÉTHODE : Télécharger un template de fichier de mapping
         downloadMappingTemplate() {
-            // Créer un fichier CSV template avec les gestionnaires standards
             const templateData = [
                 ['Etablissement', 'Gestionnaire'],
                 ['Exemple - Crèche Les Petits Pas', 'Ville de Strasbourg'],
@@ -2096,12 +1918,10 @@
                 ['# Enregistrez en Excel (.xlsx) pour l\'import', '']
             ];
 
-            // Convertir en CSV
             const csvContent = templateData
                 .map(row => row.map(cell => `"${cell}"`).join(','))
                 .join('\n');
 
-            // Créer et télécharger le fichier
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             
@@ -2166,13 +1986,11 @@
         }
 
         switchView(viewType) {
-            // Mettre à jour les onglets actifs
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             document.querySelector(`[data-view="${viewType}"]`).classList.add('active');
             
-            // Réorganiser l'affichage selon la vue
             const surveyData = this.dataAnalyzer.getSurveyData();
             this.uiRenderer.renderEtablissementsByView(surveyData, this.dataAnalyzer, viewType);
         }
