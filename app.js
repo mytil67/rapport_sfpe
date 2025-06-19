@@ -1,5 +1,6 @@
 // app.js - Version avec affichage en tableaux, tri et filtres
 // Crèches de Strasbourg - Analyse d'enquêtes de satisfaction
+// VERSION CORRIGÉE : Calcul du taux de satisfaction fiabilisé
 
 (function() {
     'use strict';
@@ -829,8 +830,11 @@
             return ans.charAt(0).toUpperCase() + ans.slice(1).toLowerCase();
         }
 
+        // =================================================================
+        // ===== ✅ SECTION CORRIGÉE ✅ =====
+        // =================================================================
         calculateSatisfactionPercentage(satData) {
-            console.log('🔍 === CALCUL SATISFACTION AVEC NORMALISATION ACCENTS ===');
+            console.log('🔍 === CALCUL SATISFACTION (LOGIQUE CORRIGÉE) ===');
             console.log('📥 Données brutes reçues:', satData);
             
             if (!satData || typeof satData !== 'object') {
@@ -870,58 +874,47 @@
             
             let tresSatisfaitCount = 0;
             let plutotSatisfaitCount = 0;
-            let totalCount = 0;
-            let rejectedCount = 0;
             
-            console.log('🔍 RECHERCHE AVEC NORMALISATION ACCENTS:');
             Object.entries(normalizedData).forEach(([key, count]) => {
                 const keyNormalized = normalizeAccents(key);
-                console.log(`🎯 "${key}" → "${keyNormalized}"`);
                 
-                const isTres = keyNormalized.includes('tres');
-                const isPlutor = keyNormalized.includes('plutot');
-                const isSatisfait = keyNormalized.includes('satisfait');
-                const isNon = keyNormalized.includes('non') || keyNormalized.includes('pas');
-                const isSpecifie = keyNormalized.includes('specifie');
-                
-                console.log(`  🧪 Après normalisation: tres=${isTres}, plutot=${isPlutor}, satisfait=${isSatisfait}, non=${isNon}, specifie=${isSpecifie}`);
-                
-                if (isSatisfait && !isNon && !isSpecifie) {
-                    totalCount += count;
-                    console.log(`  📊 Ajouté au total: ${count}`);
-                    
-                    if (isTres) {
-                        tresSatisfaitCount += count;
-                        console.log(`  ✅ TRES SATISFAIT: +${count}`);
-                    } else if (isPlutor) {
-                        plutotSatisfaitCount += count;
-                        console.log(`  ✅ PLUTOT SATISFAIT: +${count}`);
-                    } else if (keyNormalized.includes('peu') && isSatisfait) {
-                        console.log(`  ⚠️ PEU SATISFAIT: compté dans total seulement`);
-                    } else {
-                        console.log(`  ❓ AUTRE SATISFACTION: "${keyNormalized}" compté dans total seulement`);
-                    }
-                } else {
-                    rejectedCount += count;
-                    console.log(`  ❌ REJETE: non=${isNon}, specifie=${isSpecifie}, satisfait=${isSatisfait}`);
+                if (keyNormalized.includes('tres') && keyNormalized.includes('satisfait')) {
+                    tresSatisfaitCount += count;
+                } else if (keyNormalized.includes('plutot') && keyNormalized.includes('satisfait')) {
+                    plutotSatisfaitCount += count;
                 }
             });
 
-            const totalSatisfiedCount = tresSatisfaitCount + plutotSatisfaitCount;
-            const satisfactionPercentage = totalCount > 0 ? 
-                Math.round((totalSatisfiedCount / totalCount) * 100) : 0;
+            // Le dénominateur est la somme de TOUTES les réponses valides,
+            // pas seulement celles contenant "satisfait".
+            const totalValidResponses = Object.entries(normalizedData)
+                .filter(([key]) => {
+                    const keyNormalized = normalizeAccents(key);
+                    // On exclut seulement les réponses non pertinentes comme "Non spécifié"
+                    return !keyNormalized.includes('non specifie') && 
+                           !keyNormalized.includes('non specifi') && // Pour plus de sécurité
+                           keyNormalized.trim() !== '';
+                })
+                .reduce((sum, [, count]) => sum + count, 0);
 
-            console.log(`\n📊 === RESULTATS FINAUX ===`);
+            const totalSatisfiedCount = tresSatisfaitCount + plutotSatisfaitCount;
+            const satisfactionPercentage = totalValidResponses > 0 ? 
+                Math.round((totalSatisfiedCount / totalValidResponses) * 100) : 0;
+
+            console.log(`\n📊 === RESULTATS FINAUX (CORRIGÉ) ===`);
             console.log(`🎯 Très satisfait: ${tresSatisfaitCount}`);
             console.log(`🎯 Plutôt satisfait: ${plutotSatisfaitCount}`);
-            console.log(`✅ Total satisfaits: ${totalSatisfiedCount}`);
-            console.log(`📊 Total réponses valides: ${totalCount}`);
-            console.log(`❌ Réponses rejetées: ${rejectedCount}`);
+            console.log(`✅ Total satisfaits (Numérateur): ${totalSatisfiedCount}`);
+            console.log(`📊 Total réponses valides (Dénominateur): ${totalValidResponses}`);
             console.log(`🏆 POURCENTAGE FINAL: ${satisfactionPercentage}%`);
-            console.log('🔍 === FIN CALCUL SATISFACTION ===\n');
+            console.log('🔍 === FIN CALCUL SATISFACTION (CORRIGÉ) ===\n');
 
             return satisfactionPercentage;
         }
+        // =================================================================
+        // ===== ✅ FIN DE LA SECTION CORRIGÉE ✅ =====
+        // =================================================================
+
 
         calculatePercentages(ansMap, total) {
             const pct = {};
@@ -1281,10 +1274,10 @@
                 </td>
                 <td class="actions-cell text-center">
                     <div class="table-actions">
-                        <button class="table-btn details" onclick="window.surveyApp.showDetails('${item.etablissement}')" title="Voir les détails">
+                        <button class="table-btn details" onclick="window.surveyApp.showDetails('${item.id}')" title="Voir les détails">
                             👁️
                         </button>
-                        <button class="table-btn pdf" onclick="window.surveyApp.exportEtablissementToPDF('${item.etablissement}')" title="Exporter en PDF">
+                        <button class="table-btn pdf" onclick="window.surveyApp.exportEtablissementToPDF('${item.id}')" title="Exporter en PDF">
                             📄
                         </button>
                     </div>

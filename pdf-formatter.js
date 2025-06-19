@@ -1,4 +1,4 @@
-// pdf-formatter.js - Version corrigée pour les questions "Si non, pourquoi ?" et formatage amélioré
+// pdf-formatter.js - Version avec nouveau calcul de satisfaction amélioré
 
 class AdvancedPDFExporter {
     constructor() {
@@ -59,6 +59,9 @@ class AdvancedPDFExporter {
         this.pageWidth = 210;
         this.pageHeight = 297;
         this.contentWidth = this.pageWidth - this.margins.left - this.margins.right;
+        
+        // NOUVEAU : Intégrer calculateur de satisfaction
+        this.satisfactionCalculator = new SatisfactionCalculator();
     }
 
     getGestionnaireColor(gestionnaire) {
@@ -85,82 +88,49 @@ class AdvancedPDFExporter {
         return colorMap[niveau] || this.colors.primary;
     }
 
-    // METHODE AMELIOREE pour calculer la satisfaction avec normalisation des accents
-    calculateSatisfactionPercentageRobust(satisfactionData) {
-        console.log('=== CALCUL SATISFACTION PDF AVEC NORMALISATION ACCENTS ===');
-        console.log('Données brutes:', satisfactionData);
+    // MÉTHODE AMÉLIORÉE : Nouveau calcul de satisfaction avec le calculateur intégré
+    calculateSatisfactionPercentageAmélioré(satisfactionData) {
+        console.log('🔍 === CALCUL PDF AVEC SYSTÈME AMÉLIORÉ ===');
+        console.log('📥 Données brutes:', satisfactionData);
         
         if (!satisfactionData || typeof satisfactionData !== 'object') {
             console.log('❌ Données de satisfaction invalides');
             return 0;
         }
 
-        // Fonction pour normaliser les accents
-        const normalizeAccents = (str) => {
-            return str
-                .toLowerCase()
-                .replace(/[àáâãäå]/g, 'a')
-                .replace(/[èéêë]/g, 'e')
-                .replace(/[ìíîï]/g, 'i')
-                .replace(/[òóôõö]/g, 'o')
-                .replace(/[ùúûü]/g, 'u')
-                .replace(/[ç]/g, 'c')
-                .replace(/[ñ]/g, 'n')
-                .replace(/[^a-z\s]/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-        };
-
-        // Nettoyer et normaliser les clés
-        const normalizedData = {};
-        Object.entries(satisfactionData).forEach(([key, value]) => {
-            if (key && value && typeof value === 'number') {
-                const cleanKey = key.toString().trim();
-                normalizedData[cleanKey] = value;
-            }
-        });
+        // Utiliser le nouveau calculateur
+        const results = this.satisfactionCalculator.calculateSatisfactionMultiple(satisfactionData);
         
-        console.log('Données normalisées:', normalizedData);
+        if (!results) {
+            console.log('❌ Impossible de calculer la satisfaction');
+            return 0;
+        }
+
+        // Récupérer la méthode sélectionnée (par défaut: weighted)
+        const selectedMethod = window.getCurrentSatisfactionMethod ? window.getCurrentSatisfactionMethod() : 'weighted';
+        const satisfactionScore = results[selectedMethod];
+
+        console.log('📊 === RAPPORT PDF DÉTAILLÉ ===');
+        console.log(`🎯 Méthode stricte: ${results.strict}%`);
+        console.log(`⚖️ Méthode pondérée (recommandée): ${results.weighted}%`);
+        console.log(`📊 Méthode ajustée: ${results.adjusted}%`);
+        console.log(`📈 Score de tendance: ${results.trend}%`);
+        console.log(`🏆 SCORE UTILISÉ (${selectedMethod}): ${satisfactionScore}%`);
         
-        // Compter les satisfaits en cherchant toutes les variantes possibles avec normalisation
-        let tresSatisfaitCount = 0;
-        let plutotSatisfaitCount = 0;
+        console.log('📊 === MÉTRIQUES QUALITÉ ===');
+        console.log(`📊 Réponses valides: ${results.metrics.validResponses}/${results.metrics.totalResponses}`);
+        console.log(`📊 Taux de non-réponse: ${results.metrics.nonResponseRate}%`);
+        console.log(`📊 Taux d'insatisfaction: ${results.metrics.insatisfactionRate}%`);
         
-        // Recherche flexible par clés partielles avec normalisation des accents
-        Object.entries(normalizedData).forEach(([key, count]) => {
-            const keyNormalized = normalizeAccents(key);
-            console.log(`Analyse: "${key}" → "${keyNormalized}"`);
-            
-            if (keyNormalized.includes('tres') && keyNormalized.includes('satisfait')) {
-                tresSatisfaitCount += count;
-                console.log(`✅ Trouvé "Très satisfait": "${key}" = ${count}`);
-            } else if (keyNormalized.includes('plutot') && keyNormalized.includes('satisfait')) {
-                plutotSatisfaitCount += count;
-                console.log(`✅ Trouvé "Plutôt satisfait": "${key}" = ${count}`);
-            }
-        });
+        console.log('🔍 === FIN CALCUL PDF ===\n');
 
-        // Calculer le total en excluant "Non spécifié" et variantes avec normalisation
-        const totalValidResponses = Object.entries(normalizedData)
-            .filter(([key]) => {
-                const keyNormalized = normalizeAccents(key);
-                return !keyNormalized.includes('non') && !keyNormalized.includes('specifie') && 
-                       keyNormalized.trim() !== '';
-            })
-            .reduce((sum, [, count]) => sum + count, 0);
+        return satisfactionScore;
+    }
 
-        const totalSatisfiedCount = tresSatisfaitCount + plutotSatisfaitCount;
-        const satisfactionPercentage = totalValidResponses > 0 ? 
-            Math.round((totalSatisfiedCount / totalValidResponses) * 100) : 0;
-
-        console.log(`📊 Résultat final PDF:`);
-        console.log(`- Très satisfait: ${tresSatisfaitCount}`);
-        console.log(`- Plutôt satisfait: ${plutotSatisfaitCount}`);
-        console.log(`- Total satisfaits: ${totalSatisfiedCount}`);
-        console.log(`- Total réponses valides: ${totalValidResponses}`);
-        console.log(`- Pourcentage: ${satisfactionPercentage}%`);
-
-        return satisfactionPercentage;
+    // ANCIEN CALCUL - Gardé pour compatibilité mais marqué comme obsolète
+    calculateSatisfactionPercentageRobust(satisfactionData) {
+        console.log('⚠️ ATTENTION: Utilisation de l\'ancien calcul - Migration recommandée vers le nouveau système');
+        return this.calculateSatisfactionPercentageAmélioré(satisfactionData);
     }
 
     // NOUVELLE MÉTHODE : Détecter si une question "Si non, pourquoi ?" contient du texte libre
@@ -244,7 +214,7 @@ class AdvancedPDFExporter {
         this.addStyledHeader(doc, name, gestionnaire);
         currentY = 55;
 
-        // Section résumé avec style interface (plus grande maintenant)
+        // Section résumé avec style interface (plus grande maintenant) - UTILISE LE NOUVEAU CALCUL
         currentY = this.addSummarySection(doc, currentY, name, gestionnaire, data, analyzer);
         currentY += 15; // Plus d'espace après le résumé élargi
 
@@ -270,6 +240,8 @@ class AdvancedPDFExporter {
         const cleanName = name.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, '_');
         const fileName = `rapport_${cleanName}_${new Date().toISOString().split('T')[0]}.pdf`;
         doc.save(fileName);
+        
+        console.log(`📄 PDF généré avec nouveau calcul de satisfaction pour: ${name}`);
     }
 
     addStyledHeader(doc, name, gestionnaire) {
@@ -287,7 +259,7 @@ class AdvancedPDFExporter {
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text('RAPPORT D\'ANALYSE - ENQUETE SATISFACTION', this.pageWidth / 2, 15, { align: 'center' });
+        doc.text('RAPPORT D\'ANALYSE - ENQUETE SATISFACTION (CALCUL AMÉLIORE)', this.pageWidth / 2, 15, { align: 'center' });
         
         // Nom de l'établissement
         doc.setFontSize(13);
@@ -316,25 +288,25 @@ class AdvancedPDFExporter {
         
         // Fond avec style similaire à la vue détail - hauteur augmentée pour plus de contenu
         doc.setFillColor(...this.colors.background);
-        doc.roundedRect(this.margins.left, y, this.contentWidth, 85, 5, 5, 'F'); // Hauteur encore plus grande
+        doc.roundedRect(this.margins.left, y, this.contentWidth, 105, 5, 5, 'F'); // Hauteur encore plus grande pour le nouveau contenu
         
         // Bordure gauche colorée
         doc.setFillColor(...this.colors.primary);
-        doc.rect(this.margins.left, y, 4, 85, 'F');
+        doc.rect(this.margins.left, y, 4, 105, 'F');
 
         // Titre de section SANS ÉMOJIS
         doc.setTextColor(...this.colors.text);
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
-        doc.text('VUE D\'ENSEMBLE', this.margins.left + 10, y + 10);
+        doc.text('VUE D\'ENSEMBLE (CALCUL AMELIORE)', this.margins.left + 10, y + 10);
 
         // Première ligne de métriques
         y += 18;
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         
-        // CALCUL ROBUSTE de la satisfaction 
-        const satisfaction = this.calculateSatisfactionPercentageRobust(data.satisfaction);
+        // NOUVEAU CALCUL ROBUSTE de la satisfaction 
+        const satisfaction = this.calculateSatisfactionPercentageAmélioré(data.satisfaction);
         
         const satisfactionColor = satisfaction >= 80 ? this.colors.satisfaction.tresSatisfait :
                                  satisfaction >= 60 ? this.colors.satisfaction.plutotSatisfait :
@@ -380,8 +352,44 @@ class AdvancedPDFExporter {
             doc.text(metric.value, x + 3, y + 14);
         });
 
-        // NOUVELLE SECTION : Genre et CSP sur plusieurs lignes
+        // NOUVELLE SECTION : Informations sur la méthode de calcul
         y += 25;
+        
+        doc.setTextColor(...this.colors.text);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('METHODE DE CALCUL UTILISEE:', this.margins.left + 10, y);
+        
+        y += 8;
+        const currentMethod = window.getCurrentSatisfactionMethod ? window.getCurrentSatisfactionMethod() : 'weighted';
+        const methodLabels = {
+            'weighted': 'Pondérée (Très satisfait=100%, Plutôt satisfait=60%)',
+            'strict': 'Stricte (Seuls les "Très satisfait" comptent)',
+            'adjusted': 'Ajustée (Très satisfait=100%, Plutôt satisfait=50%)',
+            'trend': 'Tendance globale (Score basé sur tous les niveaux)'
+        };
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(`• Méthode active: ${methodLabels[currentMethod] || 'Pondérée'}`, this.margins.left + 15, y);
+        
+        // Afficher la comparaison des méthodes si possible
+        if (this.satisfactionCalculator) {
+            const results = this.satisfactionCalculator.calculateSatisfactionMultiple(data.satisfaction);
+            if (results) {
+                y += 6;
+                doc.text(`• Comparaison: Strict=${results.strict}%, Pondéré=${results.weighted}%, Ajusté=${results.adjusted}%`, this.margins.left + 15, y);
+                
+                y += 6;
+                doc.text(`• Taux d'insatisfaction: ${results.metrics.insatisfactionRate}%`, this.margins.left + 15, y);
+                
+                y += 6;
+                doc.text(`• Réponses valides: ${results.metrics.validResponses}/${results.metrics.totalResponses}`, this.margins.left + 15, y);
+            }
+        }
+
+        // Section Genre et CSP sur plusieurs lignes (comme avant)
+        y += 15;
         
         // Préparer les données de genre (exclure "Non spécifié") - MULTI-LIGNES
         const genreEntries = Object.entries(data.genre)
@@ -409,7 +417,7 @@ class AdvancedPDFExporter {
             
             // Calculer la hauteur nécessaire en fonction du nombre de lignes
             const maxLines = Math.max(metric.entries.length, 1);
-            const neededHeight = Math.max(35, 12 + (maxLines * 5)); // 5mm par ligne + marge
+            const neededHeight = Math.max(25, 12 + (maxLines * 5)); // 5mm par ligne + marge
             
             // Fond de métrique avec hauteur dynamique
             doc.setFillColor(255, 255, 255);
@@ -444,7 +452,7 @@ class AdvancedPDFExporter {
             }
         });
 
-        return y + 45; // Plus d'espace pour accommoder les données multi-lignes
+        return y + 50; // Plus d'espace pour accommoder les nouvelles données
     }
 
     getOrderedQuestions(data) {
@@ -964,7 +972,7 @@ class AdvancedPDFExporter {
             doc.setFont('helvetica', 'normal');
             
             // Date de génération
-            doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, 
+            doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')} - CALCUL AMELIORE`, 
                      this.margins.left, this.pageHeight - 10);
             
             // Numéro de page AVEC COULEURS
@@ -975,7 +983,7 @@ class AdvancedPDFExporter {
             // Signature AVEC COULEURS
             doc.setTextColor(...this.colors.textLight);
             doc.setFont('helvetica', 'bold');
-            doc.text('Survey Analyzer Pro', this.pageWidth - this.margins.right, this.pageHeight - 10, { align: 'right' });
+            doc.text('Survey Analyzer Pro v2.0', this.pageWidth - this.margins.right, this.pageHeight - 10, { align: 'right' });
         }
     }
 
@@ -988,7 +996,8 @@ class AdvancedPDFExporter {
                 totalResponses: Object.values(surveyData).reduce((sum, data) => sum + data.totalReponses, 0),
                 totalEtablissements: Object.keys(surveyData).length,
                 exportDate: new Date().toISOString(),
-                generator: 'Survey Analyzer Pro'
+                generator: 'Survey Analyzer Pro v2.0 (Calcul Amélioré)',
+                satisfactionMethod: window.getCurrentSatisfactionMethod ? window.getCurrentSatisfactionMethod() : 'weighted'
             },
             etablissements: surveyData,
             rawResponses: rawData
@@ -998,14 +1007,20 @@ class AdvancedPDFExporter {
         const blob = new Blob([jsonString], { type: 'application/json' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `resultats_enquete_creches_${new Date().toISOString().split('T')[0]}.json`;
+        link.download = `resultats_enquete_creches_ameliore_${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        
+        console.log('📊 Export JSON réalisé avec nouveau calcul de satisfaction');
     }
 }
 
 // Export de la classe en évitant les conflits de redéclaration
 if (typeof window.AdvancedPDFExporter === 'undefined') {
+    window.AdvancedPDFExporter = AdvancedPDFExporter;
+    console.log('✅ AdvancedPDFExporter chargé avec nouveau calcul de satisfaction');
+} else {
+    console.log('ℹ️ AdvancedPDFExporter déjà chargé, mise à jour...');
     window.AdvancedPDFExporter = AdvancedPDFExporter;
 }

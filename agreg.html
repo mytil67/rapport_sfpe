@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agrégateur Excel - Cases à cocher</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .file-input-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .file-label {
+            display: block;
+            padding: 15px 25px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .file-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .file-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .process-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 20px 0;
+        }
+        
+        .process-btn:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(40, 167, 69, 0.3);
+        }
+        
+        .process-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .preview {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .preview table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .preview th, .preview td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .preview th {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        
+        .explanation {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Agrégateur Excel</h1>
+        
+        <div class="explanation">
+            <h3>Comment ça fonctionne :</h3>
+            <p>Cet outil regroupe les colonnes de cases à cocher Excel qui suivent le format :</p>
+            <p><strong>"Question : [Option]"</strong></p>
+            <p><strong>Exemples supportés :</strong></p>
+            <ul>
+                <li><em>"Âge de votre enfant : [Moins de 18 mois]"</em></li>
+                <li><em>"Âge de votre enfant : [18-36 mois]"</em></li>
+                <li><em>"Si non, pourquoi : [Manque de temps]"</em></li>
+                <li><em>"Si oui, lesquels : [Option A]"</em></li>
+            </ul>
+            <p>Ces colonnes seront regroupées en une seule colonne avec les options sélectionnées séparées par des points-virgules.</p>
+        </div>
+        
+        <div class="file-input-container">
+            <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls" />
+            <label for="fileInput" class="file-label">
+                📁 Choisir un fichier Excel (.xlsx, .xls)
+            </label>
+            <div id="fileInfo" class="file-info" style="display: none;"></div>
+        </div>
+        
+        <button id="processBtn" class="process-btn" disabled>
+            🔄 Traiter et télécharger le fichier agrégé
+        </button>
+        
+        <div id="status"></div>
+        <div id="preview" class="preview"></div>
+    </div>
+
+    <script>
+        let workbookData = null;
+        let fileName = '';
+
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+        document.getElementById('processBtn').addEventListener('click', processFile);
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            fileName = file.name.replace(/\.[^/.]+$/, ""); // nom sans extension
+            document.getElementById('fileInfo').style.display = 'block';
+            document.getElementById('fileInfo').textContent = `Fichier sélectionné : ${file.name}`;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    workbookData = XLSX.read(data, { type: 'array' });
+                    document.getElementById('processBtn').disabled = false;
+                    showStatus('Fichier chargé avec succès !', 'success');
+                } catch (error) {
+                    showStatus('Erreur lors de la lecture du fichier : ' + error.message, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processFile() {
+            if (!workbookData) {
+                showStatus('Aucun fichier sélectionné', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Traitement en cours...', 'info');
+                
+                // 1) Lecture du fichier Excel
+                const sheetName = workbookData.SheetNames[0];
+                const worksheet = workbookData.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+                
+                if (!Array.isArray(jsonData) || jsonData.length < 2) {
+                    throw new Error('Le fichier Excel ne contient pas de données exploitables.');
+                }
+
+                // 2) Récupération des en-têtes et des données
+                const headers = jsonData[0].map(cell => (cell == null ? '' : cell.toString().trim()));
+                const rows = jsonData.slice(1);
+
+                console.log('Headers originaux:', headers);
+
+                // 3) Identification des groupes « cases à cocher »
+                const checkboxGroups = {};
+                // Regex élargie pour capturer différents formats, y compris avec point d'interrogation
+                const regexCheckbox = /^(.+?)\s*[:\?]\s*\[(.+)\]$/;
+                const checkboxIndices = new Set();
+
+                headers.forEach((h, idx) => {
+                    if (!h) return;
+                    
+                    // Nettoyage de l'en-tête
+                    const cleanHeader = h.replace(/\s+/g, ' ').trim();
+                    const match = cleanHeader.match(regexCheckbox);
+                    
+                    if (match) {
+                        let questionBase = match[1].trim();
+                        const optionLabel = match[2].trim();
+                        
+                        // Supprimer le point d'interrogation final s'il y en a un
+                        questionBase = questionBase.replace(/\?+$/, '').trim();
+                        
+                        // Normalisation des questions "Si non, pourquoi" et variations similaires
+                        // Supprimer les préfixes comme "Si non, " "Si oui, " etc.
+                        questionBase = questionBase
+                            .replace(/^Si\s+(non|oui),?\s*/i, '')
+                            .replace(/^Pourquoi\s*/i, '')
+                            .replace(/^Si\s+c'est\s+le\s+cas,?\s*/i, '')
+                            .replace(/^Dans\s+ce\s+cas,?\s*/i, '')
+                            .replace(/^Comment\s*/i, '')
+                            .replace(/^Quand\s*/i, '')
+                            .replace(/^Où\s*/i, '')
+                            .replace(/^Lesquels?\s*/i, '')
+                            .replace(/^Lesquelles?\s*/i, '')
+                            .trim();
+                        
+                        // Si la question est vide après nettoyage, utiliser l'original (sans le point d'interrogation)
+                        if (!questionBase) {
+                            questionBase = match[1].replace(/\?+$/, '').trim();
+                        }
+                        
+                        if (!checkboxGroups[questionBase]) {
+                            checkboxGroups[questionBase] = [];
+                        }
+                        checkboxGroups[questionBase].push({ 
+                            index: idx, 
+                            option: optionLabel,
+                            originalHeader: cleanHeader 
+                        });
+                        checkboxIndices.add(idx);
+                    }
+                });
+
+                console.log('Groupes détectés:', checkboxGroups);
+                console.log('Indices checkbox:', Array.from(checkboxIndices));
+
+                if (Object.keys(checkboxGroups).length === 0) {
+                    throw new Error('Aucune colonne au format "Question : [Option]" trouvée dans le fichier.');
+                }
+
+                // 4) Construction des nouveaux en-têtes et mapping
+                const newHeaders = [];
+                const columnMapping = [];
+
+                // Parcourir toutes les colonnes originales dans l'ordre
+                for (let i = 0; i < headers.length; i++) {
+                    if (checkboxIndices.has(i)) {
+                        // Cette colonne fait partie d'un groupe checkbox
+                        // Trouver le groupe correspondant
+                        let groupName = null;
+                        for (const [questionBase, opts] of Object.entries(checkboxGroups)) {
+                            if (opts.some(opt => opt.index === i)) {
+                                groupName = questionBase;
+                                break;
+                            }
+                        }
+                        
+                        // Ajouter le groupe seulement s'il n'est pas déjà présent
+                        if (groupName && !newHeaders.includes(groupName)) {
+                            newHeaders.push(groupName);
+                            columnMapping.push({
+                                type: 'group',
+                                groupName: groupName
+                            });
+                        }
+                        // Ne pas ajouter de mapping pour les colonnes individuelles du groupe
+                    } else {
+                        // Colonne normale
+                        newHeaders.push(headers[i]);
+                        columnMapping.push({
+                            type: 'normal',
+                            originalIndex: i
+                        });
+                    }
+                }
+
+                console.log('Nouveaux headers:', newHeaders);
+                console.log('Column mapping:', columnMapping);
+
+                // 5) Construction des nouvelles lignes de données
+                const newRows = rows.map((row, rowIndex) => {
+                    const newRow = [];
+                    
+                    columnMapping.forEach(colInfo => {
+                        if (colInfo.type === 'normal') {
+                            // Colonne normale - copier la valeur
+                            const value = row[colInfo.originalIndex];
+                            newRow.push(value != null ? value : '');
+                        } else if (colInfo.type === 'group') {
+                            // Colonne groupée - agréger les options
+                            const groupOptions = checkboxGroups[colInfo.groupName];
+                            const selectedOptions = [];
+                            
+                            groupOptions.forEach(({ index, option }) => {
+                                const cellValue = row[index];
+                                if (cellValue != null) {
+                                    const str = cellValue.toString().trim().toLowerCase();
+                                    if (str !== '' && str !== 'non' && str !== 'sans réponse' && str !== 'n/a' && str !== '0' && str !== 'false') {
+                                        selectedOptions.push(option);
+                                    }
+                                }
+                            });
+                            
+                            const aggregatedValue = selectedOptions.length > 0 ? selectedOptions.join('; ') : '';
+                            newRow.push(aggregatedValue);
+                        }
+                    });
+                    
+                    return newRow;
+                });
+
+                console.log('Exemple de nouvelle ligne:', newRows[0]);
+
+                // 6) Création et téléchargement du nouveau fichier
+                const ws_new = XLSX.utils.aoa_to_sheet([newHeaders, ...newRows]);
+                const wb_new = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb_new, ws_new, sheetName);
+
+                const wbout = XLSX.write(wb_new, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([wbout], { type: 'application/octet-stream' });
+                
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${fileName}_agrégé.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                // Affichage du résultat
+                const groupCount = Object.keys(checkboxGroups).length;
+                const totalOptionsCount = Object.values(checkboxGroups).reduce((sum, opts) => sum + opts.length, 0);
+                const originalColumnCount = headers.length;
+                const newColumnCount = newHeaders.length;
+                
+                showStatus(`✅ Fichier traité avec succès !<br>
+• ${groupCount} questions regroupées<br>
+• ${totalOptionsCount} colonnes d'options fusionnées en ${groupCount} colonnes<br>
+• Colonnes originales : ${originalColumnCount} → Nouvelles colonnes : ${newColumnCount}<br>
+• Le fichier "${fileName}_agrégé.xlsx" a été téléchargé`, 'success');
+
+                // Aperçu des données
+                showPreview([newHeaders, ...newRows.slice(0, 5)], groupCount);
+
+            } catch (error) {
+                console.error('Erreur:', error);
+                showStatus('Erreur lors du traitement : ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        function showPreview(data, groupCount) {
+            const previewDiv = document.getElementById('preview');
+            if (data.length === 0) return;
+
+            let html = '<h4>Aperçu du résultat (5 premières lignes) :</h4>';
+            html += '<table>';
+            
+            data.forEach((row, index) => {
+                html += '<tr>';
+                row.forEach(cell => {
+                    const tag = index === 0 ? 'th' : 'td';
+                    const cellValue = cell || '';
+                    html += `<${tag}>${cellValue}</${tag}>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</table>';
+            previewDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

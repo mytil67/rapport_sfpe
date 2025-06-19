@@ -3,20 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Résultats de l'enquête satisfaction - Crèches de Strasbourg</title>
+    <title>Résultats de l'enquête satisfaction - Crèches de Strasbourg (Calcul Amélioré)</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Styles pour la nouvelle configuration de satisfaction */
+        .satisfaction-config {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .config-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .method-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+        }
+
+        .method-option {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .method-option:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .method-option.active {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .method-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .method-label {
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 1rem;
+        }
+
+        .method-description {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            line-height: 1.3;
+        }
+
+        .satisfaction-insight {
+            background: #e8f4fd;
+            border-left: 4px solid #4facfe;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 10px 10px 0;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .insight-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+        }
+
+        .insight-content {
+            color: #34495e;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .comparison-badge {
+            display: inline-block;
+            background: #17a2b8;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+            font-weight: 500;
+        }
+
+        .show-comparison-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .show-comparison-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .improvement-highlight {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .improvement-highlight h4 {
+            margin: 0 0 8px 0;
+            font-size: 1.1rem;
+        }
+
+        .improvement-highlight p {
+            margin: 0;
+            font-size: 0.9rem;
+            opacity: 0.95;
+        }
+
+        /* Responsive pour la config de satisfaction */
+        @media (max-width: 768px) {
+            .satisfaction-config {
+                padding: 20px;
+            }
+            
+            .config-header {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+            
+            .method-selector {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            .method-option {
+                padding: 12px;
+            }
+            
+            .method-icon {
+                font-size: 1.5rem;
+                margin-bottom: 6px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>📊 Résultats de l'enquête satisfaction</h1>
-            <p>Crèches de Strasbourg - Analyse automatisée des enquêtes</p>
+            <p>Crèches de Strasbourg - Analyse automatisée avec calcul de satisfaction amélioré</p>
         </div>
 
         <div class="content">
             <!-- Section d'import de fichier -->
             <div id="file-upload-section" class="file-upload-section">
                 <div class="upload-container">
+                    <div class="improvement-highlight">
+                        <h4>🎯 Nouvelle version avec calcul de satisfaction amélioré !</h4>
+                        <p>Méthodes de calcul plus réalistes et moins optimistes pour des résultats plus fiables</p>
+                    </div>
+
                     <h2>📁 Importer le fichier de données</h2>
                     <p>Sélectionnez le fichier Excel (.xlsx, .xls) contenant les réponses du questionnaire<br>
                     ou un fichier JSON (.json) d'analyse précédente pour un chargement rapide</p>
@@ -26,11 +213,6 @@
                         <p>Glissez-déposez votre fichier Excel ou JSON ici ou cliquez pour sélectionner</p>
                         <input type="file" id="file-input" accept=".xlsx,.xls,.json" style="display: none;">
                         <button id="select-file-btn" class="upload-btn">Sélectionner un fichier</button>
-                        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid rgba(255,255,255,0.3);">
-                            <p style="font-size: 0.9rem; opacity: 0.8;">
-                                💡 <strong>Astuce :</strong> Importez un fichier JSON d'analyse précédente pour un chargement instantané !
-                            </p>
-                        </div>
                     </div>
                     
                     <div id="file-info" class="file-info" style="display: none;">
@@ -38,7 +220,7 @@
                         <button id="process-file-btn" class="process-btn">Analyser le fichier</button>
                     </div>
 
-                    <!-- NOUVELLE SECTION : Import JSON rapide -->
+                    <!-- Import JSON rapide -->
                     <div class="json-import-section" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.3);">
                         <h3 style="margin-bottom: 15px;">⚡ Import rapide JSON</h3>
                         <p style="opacity: 0.9; margin-bottom: 20px; font-size: 0.9rem;">
@@ -60,7 +242,7 @@
                         </div>
                     </div>
 
-                    <!-- Section : Import du fichier de mapping gestionnaires -->
+                    <!-- Section mapping gestionnaires -->
                     <div class="mapping-section" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.3);">
                         <h3 style="margin-bottom: 15px;">📋 Fichier de référence des gestionnaires (optionnel)</h3>
                         <p style="opacity: 0.9; margin-bottom: 20px; font-size: 0.9rem;">
@@ -88,7 +270,7 @@
             <!-- État de chargement -->
             <div id="loading" class="loading" style="display: none;">
                 <div class="spinner"></div>
-                <p>Traitement des données en cours...</p>
+                <p>Traitement des données avec calcul amélioré...</p>
             </div>
 
             <!-- Messages d'erreur -->
@@ -115,11 +297,60 @@
                         <div class="stat-item">
                             <span class="stat-number" id="satisfaction-globale">0%</span>
                             <span>Satisfaction globale</span>
+                            <span class="comparison-badge" id="method-badge">Pondéré</span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-number" id="date-enquete">-</span>
                             <span>Période d'enquête</span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- NOUVELLE SECTION : Configuration du calcul de satisfaction -->
+                <div class="satisfaction-config" id="satisfaction-config">
+                    <div class="config-header">
+                        <h3 class="config-title">
+                            <span>⚖️</span>
+                            <span>Méthode de calcul de la satisfaction</span>
+                        </h3>
+                        <button id="show-comparison" class="show-comparison-btn">
+                            <span>📊</span>
+                            <span>Voir la comparaison</span>
+                        </button>
+                    </div>
+                    
+                    <div class="method-selector" id="method-selector">
+                        <div class="method-option active" data-method="weighted">
+                            <span class="method-icon">⚖️</span>
+                            <div class="method-label">Pondéré (recommandé)</div>
+                            <div class="method-description">Très satisfait 100%, Plutôt satisfait 60%</div>
+                        </div>
+                        
+                        <div class="method-option" data-method="strict">
+                            <span class="method-icon">🎯</span>
+                            <div class="method-label">Strict</div>
+                            <div class="method-description">Seuls les "Très satisfait" comptent</div>
+                        </div>
+                        
+                        <div class="method-option" data-method="adjusted">
+                            <span class="method-icon">📊</span>
+                            <div class="method-label">Ajusté</div>
+                            <div class="method-description">Très satisfait 100%, Plutôt satisfait 50%</div>
+                        </div>
+                        
+                        <div class="method-option" data-method="trend">
+                            <span class="method-icon">📈</span>
+                            <div class="method-label">Tendance globale</div>
+                            <div class="method-description">Score basé sur tous les niveaux</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NOUVELLE SECTION : Insight sur la satisfaction -->
+                <div class="satisfaction-insight" id="satisfaction-insight" style="display: none;">
+                    <div class="insight-title">💡 Analyse comparative des méthodes</div>
+                    <div class="insight-content" id="insight-content">
+                        <!-- Le contenu sera généré dynamiquement -->
                     </div>
                 </div>
 
@@ -171,10 +402,526 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
+    <!-- NOUVEAU : Calculateur de satisfaction amélioré -->
+    <script>
+// SatisfactionCalculator - Version corrigée pour une détection plus robuste
+
+class SatisfactionCalculator {
+    constructor() {
+        this.calculationMethods = {
+            strict: {
+                name: "Stricte",
+                description: "Seuls les 'Très satisfait' comptent comme satisfaits",
+                satisfiedLevels: ['très satisfait'],
+                weight: 1.0
+            },
+            weighted: {
+                name: "Pondérée",
+                description: "Très satisfait = 100%, Plutôt satisfait = 60%",
+                satisfiedLevels: ['très satisfait', 'plutôt satisfait'],
+                weights: {
+                    'très satisfait': 1.0,
+                    'plutôt satisfait': 0.6,
+                    'peu satisfait': 0.2,
+                    'pas satisfait': 0.0
+                }
+            },
+            adjusted: {
+                name: "Ajustée",
+                description: "Très satisfait = 100%, Plutôt satisfait = 50%",
+                satisfiedLevels: ['très satisfait', 'plutôt satisfait'],
+                weights: {
+                    'très satisfait': 1.0,
+                    'plutôt satisfait': 0.5,
+                    'peu satisfait': 0.0,
+                    'pas satisfait': 0.0
+                }
+            },
+            trend: {
+                name: "Tendance",
+                description: "Score global basé sur tous les niveaux",
+                satisfiedLevels: ['très satisfait', 'plutôt satisfait', 'peu satisfait', 'pas satisfait'],
+                weights: {
+                    'très satisfait': 1.0,
+                    'plutôt satisfait': 0.67,
+                    'peu satisfait': 0.33,
+                    'pas satisfait': 0.0
+                }
+            }
+        };
+    }
+
+    // MÉTHODE CORRIGÉE : Normalisation plus robuste
+    normalizeAccents(str) {
+        return str
+            .toLowerCase()
+            .replace(/[àáâãäå]/g, 'a')
+            .replace(/[èéêëē]/g, 'e')
+            .replace(/[ìíîï]/g, 'i')
+            .replace(/[òóôõöō]/g, 'o')
+            .replace(/[ùúûü]/g, 'u')
+            .replace(/[ç]/g, 'c')
+            .replace(/[ñ]/g, 'n')
+            .replace(/[^a-z\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    // MÉTHODE CORRIGÉE : Classification plus robuste des niveaux de satisfaction
+    classifySatisfactionLevel(originalKey) {
+        if (!originalKey || typeof originalKey !== 'string') {
+            return null;
+        }
+
+        const normalized = this.normalizeAccents(originalKey.toString().trim());
+        
+        console.log(`🔍 Classification: "${originalKey}" → "${normalized}"`);
+
+        // TRÈS SATISFAIT (toutes les variantes possibles)
+        if (
+            normalized.includes('tres satisfait') ||
+            normalized.includes('tres satisfaisant') ||
+            normalized.includes('tres satisfaisante') ||
+            normalized.includes('tres content') ||
+            normalized.includes('tres contente') ||
+            normalized.includes('totalement satisfait') ||
+            normalized.includes('totalement satisfaisant') ||
+            normalized.includes('tout a fait satisfait') ||
+            normalized.includes('parfaitement satisfait') ||
+            (normalized.includes('tres') && (normalized.includes('satisfai') || normalized.includes('content')))
+        ) {
+            console.log(`✅ → TRÈS SATISFAIT`);
+            return 'très satisfait';
+        }
+
+        // PLUTÔT SATISFAIT
+        if (
+            normalized.includes('plutot satisfait') ||
+            normalized.includes('plutot satisfaisant') ||
+            normalized.includes('plutot satisfaisante') ||
+            normalized.includes('plutot content') ||
+            normalized.includes('plutot contente') ||
+            normalized.includes('assez satisfait') ||
+            normalized.includes('relativement satisfait') ||
+            (normalized.includes('plutot') && (normalized.includes('satisfai') || normalized.includes('content')))
+        ) {
+            console.log(`✅ → PLUTÔT SATISFAIT`);
+            return 'plutôt satisfait';
+        }
+
+        // PEU SATISFAIT
+        if (
+            normalized.includes('peu satisfait') ||
+            normalized.includes('peu satisfaisant') ||
+            normalized.includes('peu satisfaisante') ||
+            normalized.includes('peu content') ||
+            normalized.includes('peu contente') ||
+            normalized.includes('moyennement satisfait') ||
+            normalized.includes('pas tres satisfait') ||
+            (normalized.includes('peu') && (normalized.includes('satisfai') || normalized.includes('content')))
+        ) {
+            console.log(`✅ → PEU SATISFAIT`);
+            return 'peu satisfait';
+        }
+
+        // PAS SATISFAIT
+        if (
+            normalized.includes('pas satisfait') ||
+            normalized.includes('pas satisfaisant') ||
+            normalized.includes('pas satisfaisante') ||
+            normalized.includes('pas content') ||
+            normalized.includes('pas contente') ||
+            normalized.includes('pas du tout satisfait') ||
+            normalized.includes('insatisfait') ||
+            normalized.includes('mecontent') ||
+            normalized.includes('non satisfait') ||
+            (normalized.includes('pas') && (normalized.includes('satisfai') || normalized.includes('content')))
+        ) {
+            console.log(`✅ → PAS SATISFAIT`);
+            return 'pas satisfait';
+        }
+
+        // NON SPÉCIFIÉ / DONNÉES PARASITES
+        if (
+            normalized.includes('non specifie') ||
+            normalized.includes('non precise') ||
+            normalized.includes('sans reponse') ||
+            normalized.includes('n a') ||
+            normalized.includes('vide') ||
+            normalized === '' ||
+            normalized === 'null' ||
+            normalized === 'undefined'
+        ) {
+            console.log(`❌ → NON SPÉCIFIÉ (ignoré)`);
+            return null; // Sera ignoré dans le calcul
+        }
+
+        console.log(`❓ → AUTRE/INCONNU (ignoré)`);
+        return null; // Clé non reconnue, sera ignorée
+    }
+
+    // MÉTHODE CORRIGÉE : Analyse des données avec meilleure classification
+    analyzeSatisfactionData(satisfactionData) {
+        if (!satisfactionData || typeof satisfactionData !== 'object') {
+            console.log('❌ Données invalides');
+            return null;
+        }
+
+        console.log('📥 === ANALYSE DES DONNÉES ===');
+        console.log('Données brutes:', satisfactionData);
+
+        const cleanData = {
+            'très satisfait': 0,
+            'plutôt satisfait': 0,
+            'peu satisfait': 0,
+            'pas satisfait': 0
+        };
+
+        let totalValidResponses = 0;
+        let totalIgnored = 0;
+
+        Object.entries(satisfactionData).forEach(([key, value]) => {
+            if (!key || !value || typeof value !== 'number' || value <= 0) {
+                console.log(`⏭️ Ignoré (valeur invalide): "${key}" = ${value}`);
+                return;
+            }
+
+            const classifiedLevel = this.classifySatisfactionLevel(key);
+            
+            if (classifiedLevel) {
+                cleanData[classifiedLevel] += value;
+                totalValidResponses += value;
+                console.log(`✅ Ajouté: "${key}" (${value}) → ${classifiedLevel}`);
+            } else {
+                totalIgnored += value;
+                console.log(`❌ Ignoré: "${key}" (${value}) - non classifiable`);
+            }
+        });
+
+        console.log('📊 === RÉSULTATS DE L\'ANALYSE ===');
+        console.log('Données nettoyées:', cleanData);
+        console.log(`Réponses valides: ${totalValidResponses}`);
+        console.log(`Réponses ignorées: ${totalIgnored}`);
+
+        return {
+            data: cleanData,
+            totalResponses: totalValidResponses + totalIgnored,
+            validResponses: totalValidResponses,
+            ignoredResponses: totalIgnored
+        };
+    }
+
+    // MÉTHODE PRINCIPALE : Calcul multiple avec analyse corrigée
+    calculateSatisfactionMultiple(satisfactionData) {
+        console.log('🎯 === CALCUL SATISFACTION MULTIPLE CORRIGÉ ===');
+        
+        const analyzed = this.analyzeSatisfactionData(satisfactionData);
+        if (!analyzed || analyzed.validResponses === 0) {
+            console.log('❌ Aucune donnée valide à analyser');
+            return null;
+        }
+
+        const results = {};
+        
+        // Calculer avec chaque méthode
+        Object.entries(this.calculationMethods).forEach(([methodKey, method]) => {
+            results[methodKey] = this.calculateWithMethod(analyzed, method);
+            console.log(`📊 ${method.name}: ${results[methodKey]}%`);
+        });
+
+        // Métriques détaillées
+        results.metrics = {
+            totalResponses: analyzed.totalResponses,
+            validResponses: analyzed.validResponses,
+            ignoredResponses: analyzed.ignoredResponses,
+            distribution: analyzed.data,
+            nonResponseRate: analyzed.totalResponses > 0 ? 
+                Math.round((analyzed.ignoredResponses / analyzed.totalResponses) * 100) : 0,
+            insatisfactionRate: analyzed.validResponses > 0 ? 
+                Math.round(((analyzed.data['peu satisfait'] + analyzed.data['pas satisfait']) / analyzed.validResponses) * 100) : 0,
+            excellenceRate: analyzed.validResponses > 0 ? 
+                Math.round((analyzed.data['très satisfait'] / analyzed.validResponses) * 100) : 0
+        };
+
+        console.log('🎯 === MÉTRIQUES FINALES ===');
+        console.log(`Très satisfait: ${analyzed.data['très satisfait']} (${results.metrics.excellenceRate}%)`);
+        console.log(`Plutôt satisfait: ${analyzed.data['plutôt satisfait']}`);
+        console.log(`Peu satisfait: ${analyzed.data['peu satisfait']}`);
+        console.log(`Pas satisfait: ${analyzed.data['pas satisfait']}`);
+        console.log(`Taux d'insatisfaction: ${results.metrics.insatisfactionRate}%`);
+        console.log('🎯 === FIN CALCUL ===\n');
+
+        return results;
+    }
+
+    // Calcul avec une méthode spécifique
+    calculateWithMethod(analyzed, method) {
+        const { data, validResponses } = analyzed;
+        
+        if (validResponses === 0) return 0;
+
+        if (method.weights) {
+            // Calcul pondéré
+            let weightedSum = 0;
+            let totalResponses = 0;
+
+            Object.entries(method.weights).forEach(([level, weight]) => {
+                const count = data[level] || 0;
+                weightedSum += count * weight;
+                totalResponses += count;
+            });
+
+            return totalResponses > 0 ? Math.round((weightedSum / totalResponses) * 100) : 0;
+        } else {
+            // Calcul simple (stricte)
+            const satisfiedCount = method.satisfiedLevels.reduce((sum, level) => {
+                return sum + (data[level] || 0);
+            }, 0);
+
+            return Math.round((satisfiedCount / validResponses) * 100);
+        }
+    }
+
+    // TEST UNITAIRE pour votre cas spécifique
+    testSingleVeryHappy() {
+        console.log('🧪 === TEST UNITAIRE : UNE RÉPONSE TRÈS SATISFAITE ===');
+        
+        const testData = {
+            "Très satisfaisant": 1  // Votre cas exact
+        };
+
+        const result = this.calculateSatisfactionMultiple(testData);
+        
+        console.log('📋 Données de test:', testData);
+        console.log('📊 Résultats:');
+        console.log(`  Stricte: ${result.strict}% (devrait être 100%)`);
+        console.log(`  Pondérée: ${result.weighted}% (devrait être 100%)`);
+        console.log(`  Ajustée: ${result.adjusted}% (devrait être 100%)`);
+        console.log(`  Tendance: ${result.trend}% (devrait être 100%)`);
+        
+        // Vérification
+        if (result.weighted === 100) {
+            console.log('✅ TEST RÉUSSI : Le calcul est correct !');
+        } else {
+            console.log('❌ TEST ÉCHOUÉ : Le calcul doit être corrigé !');
+        }
+        
+        return result;
+    }
+
+    // Génération de rapport détaillé
+    generateSatisfactionReport(satisfactionData, establishmentName = '') {
+        const results = this.calculateSatisfactionMultiple(satisfactionData);
+        if (!results) return null;
+
+        return {
+            establishment: establishmentName,
+            timestamp: new Date().toISOString(),
+            satisfaction: {
+                recommended: results.weighted,
+                alternative: results.adjusted,
+                strict: results.strict,
+                comprehensive: results.trend
+            },
+            raw: results.metrics,
+            classification: results.metrics.distribution
+        };
+    }
+}
+
+// Test automatique au chargement
+if (typeof window !== 'undefined') {
+    window.SatisfactionCalculator = SatisfactionCalculator;
+    
+    // Lancer le test automatiquement
+    const testCalc = new SatisfactionCalculator();
+    testCalc.testSingleVeryHappy();
+    
+    console.log('✅ SatisfactionCalculator corrigé chargé et testé');
+}
+    </script>
+    
     <!-- Gestionnaire PDF amélioré -->
     <script src="pdf-formatter.js"></script>
     
     <!-- Application principale -->
     <script src="app.js"></script>
+
+    <!-- NOUVEAU : Script pour gérer la configuration de satisfaction -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎯 Initialisation de l\'interface de satisfaction améliorée...');
+            
+            // Initialiser la configuration des méthodes
+            let currentMethod = 'weighted';
+            
+            // Fonction globale pour récupérer la méthode courante
+            window.getCurrentSatisfactionMethod = () => currentMethod;
+            window.currentSatisfactionMethod = currentMethod;
+            
+            // Gérer le changement de méthode
+            document.querySelectorAll('.method-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const method = this.dataset.method;
+                    
+                    // Mettre à jour l'interface
+                    document.querySelectorAll('.method-option').forEach(opt => opt.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Mettre à jour la méthode courante
+                    currentMethod = method;
+                    window.currentSatisfactionMethod = method;
+                    
+                    // Mettre à jour le badge
+                    const badge = document.getElementById('method-badge');
+                    const methodNames = {
+                        'weighted': 'Pondéré',
+                        'strict': 'Strict',
+                        'adjusted': 'Ajusté',
+                        'trend': 'Tendance'
+                    };
+                    if (badge) {
+                        badge.textContent = methodNames[method];
+                    }
+                    
+                    // Recalculer et mettre à jour l'affichage si des données sont disponibles
+                    if (window.surveyApp && window.surveyApp.dataAnalyzer && window.surveyApp.dataAnalyzer.getSurveyData) {
+                        try {
+                            updateSatisfactionDisplay(method);
+                        } catch (error) {
+                            console.log('Données non encore disponibles pour la mise à jour');
+                        }
+                    }
+                    
+                    console.log(`🔧 Méthode de calcul changée: ${method}`);
+                });
+            });
+            
+            // Afficher/masquer la comparaison
+            const showComparisonBtn = document.getElementById('show-comparison');
+            if (showComparisonBtn) {
+                showComparisonBtn.addEventListener('click', function() {
+                    const insight = document.getElementById('satisfaction-insight');
+                    if (insight.style.display === 'none' || !insight.style.display) {
+                        showSatisfactionComparison();
+                        insight.style.display = 'block';
+                        this.innerHTML = '<span>🔼</span><span>Masquer la comparaison</span>';
+                    } else {
+                        insight.style.display = 'none';
+                        this.innerHTML = '<span>📊</span><span>Voir la comparaison</span>';
+                    }
+                });
+            }
+            
+            function updateSatisfactionDisplay(method) {
+                try {
+                    const surveyData = window.surveyApp.dataAnalyzer.getSurveyData();
+                    const rawData = window.surveyApp.dataAnalyzer.getRawData();
+                    
+                    // Mettre à jour l'affichage
+                    window.surveyApp.uiRenderer.renderSummary(surveyData, rawData);
+                    window.surveyApp.uiRenderer.renderEtablissements(surveyData, window.surveyApp.dataAnalyzer);
+                    
+                    // Mettre à jour la comparaison si elle est affichée
+                    const insight = document.getElementById('satisfaction-insight');
+                    if (insight && insight.style.display !== 'none') {
+                        showSatisfactionComparison();
+                    }
+                    
+                    console.log(`✅ Affichage mis à jour avec la méthode: ${method}`);
+                } catch (error) {
+                    console.log('Données non encore disponibles pour la mise à jour:', error);
+                }
+            }
+            
+            function showSatisfactionComparison() {
+                if (!window.surveyApp || !window.surveyApp.dataAnalyzer || !window.surveyApp.dataAnalyzer.getSurveyData) {
+                    console.log('Données non disponibles pour la comparaison');
+                    return;
+                }
+                
+                try {
+                    const surveyData = window.surveyApp.dataAnalyzer.getSurveyData();
+                    const calculator = new SatisfactionCalculator();
+                    
+                    let comparisonHTML = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">';
+                    
+                    // Calculer pour chaque établissement et faire une moyenne
+                    const allResults = [];
+                    Object.entries(surveyData).forEach(([name, data]) => {
+                        const results = calculator.calculateSatisfactionMultiple(data.satisfaction);
+                        if (results) allResults.push(results);
+                    });
+                    
+                    if (allResults.length > 0) {
+                        const avgResults = {
+                            strict: Math.round(allResults.reduce((sum, r) => sum + r.strict, 0) / allResults.length),
+                            weighted: Math.round(allResults.reduce((sum, r) => sum + r.weighted, 0) / allResults.length),
+                            adjusted: Math.round(allResults.reduce((sum, r) => sum + r.adjusted, 0) / allResults.length),
+                            trend: Math.round(allResults.reduce((sum, r) => sum + r.trend, 0) / allResults.length)
+                        };
+                        
+                        // Calculer l'écart avec l'ancien calcul (simulation)
+                        const oldCalculation = Math.round(allResults.reduce((sum, r) => {
+                            // Simulation de l'ancien calcul (Très + Plutôt satisfait)
+                            const total = r.metrics.validResponses;
+                            const satisfied = r.metrics.distribution['très satisfait'] + r.metrics.distribution['plutôt satisfait'];
+                            return sum + (total > 0 ? (satisfied / total) * 100 : 0);
+                        }, 0) / allResults.length);
+                        
+                        Object.entries(avgResults).forEach(([method, score]) => {
+                            const isActive = method === currentMethod;
+                            const difference = score - oldCalculation;
+                            const diffText = difference > 0 ? `+${difference}` : `${difference}`;
+                            const diffColor = difference > 0 ? '#28a745' : '#dc3545';
+                            
+                            comparisonHTML += `
+                                <div style="background: ${isActive ? '#4facfe' : 'white'}; color: ${isActive ? 'white' : '#333'}; padding: 18px; border-radius: 10px; text-align: center; ${isActive ? 'box-shadow: 0 8px 20px rgba(79, 172, 254, 0.3); transform: translateY(-2px);' : 'border: 2px solid #e9ecef;'}">
+                                    <div style="font-size: 1.8rem; font-weight: bold; margin-bottom: 8px;">${score}%</div>
+                                    <div style="font-size: 0.95rem; margin-bottom: 6px; opacity: 0.9;">${calculator.calculationMethods[method].name}</div>
+                                    <div style="font-size: 0.8rem; color: ${isActive ? 'rgba(255,255,255,0.8)' : diffColor}; font-weight: 500;">
+                                        vs ancien: ${diffText} pts
+                                    </div>
+                                    ${isActive ? '<div style="font-size: 0.75rem; margin-top: 8px; padding: 4px 8px; background: rgba(255,255,255,0.2); border-radius: 12px;">✓ Méthode active</div>' : ''}
+                                </div>
+                            `;
+                        });
+                        
+                        comparisonHTML += '</div>';
+                        
+                        // Ajouter des informations sur l'amélioration
+                        const improvement = oldCalculation - avgResults.weighted;
+                        comparisonHTML += `
+                            <div style="background: linear-gradient(135deg, #e8f4fd 0%, #fff 100%); padding: 20px; border-radius: 10px; border-left: 4px solid #4facfe;">
+                                <h4 style="margin: 0 0 12px 0; color: #2c3e50;">📊 Analyse de l'amélioration</h4>
+                                <div style="font-size: 0.95rem; line-height: 1.6; color: #34495e;">
+                                    <p style="margin: 0 0 8px 0;"><strong>Ancien calcul (optimiste) :</strong> ${oldCalculation}%</p>
+                                    <p style="margin: 0 0 8px 0;"><strong>Nouveau calcul (réaliste) :</strong> ${avgResults.weighted}%</p>
+                                    <p style="margin: 0 0 12px 0;"><strong>Différence :</strong> ${improvement > 0 ? '-' : '+'}${Math.abs(improvement)} points</p>
+                                    <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; font-size: 0.9rem;">
+                                        💡 <strong>Explication :</strong> ${improvement > 0 ? 
+                                            `L'ancien calcul était ${improvement} points trop optimiste en comptant les "Plutôt satisfait" comme 100% satisfaits. La nouvelle méthode pondérée est plus réaliste.` :
+                                            'Les deux méthodes donnent des résultats similaires pour ce jeu de données.'
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    document.getElementById('insight-content').innerHTML = comparisonHTML;
+                } catch (error) {
+                    console.error('Erreur lors de la génération de la comparaison:', error);
+                    document.getElementById('insight-content').innerHTML = `
+                        <p style="color: #666; font-style: italic;">
+                            La comparaison sera disponible une fois les données chargées.
+                        </p>
+                    `;
+                }
+            }
+            
+            console.log('✅ Interface de satisfaction améliorée initialisée');
+        });
+    </script>
 </body>
 </html>
