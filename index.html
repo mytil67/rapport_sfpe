@@ -360,6 +360,7 @@
                     <button class="tab-btn" data-view="satisfaction">📊 Tri par satisfaction</button>
                     <button class="tab-btn" data-view="gestionnaires">👥 Tri par gestionnaires</button>
                     <button class="tab-btn" data-view="repondants">📈 Tri par répondants</button>
+					<button class="tab-btn" data-view="global">🌍 Statistiques globales</button>
                 </div>
 
                 <!-- Conteneur principal pour les tableaux -->
@@ -401,6 +402,8 @@
     <!-- Scripts externes -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
     
     <!-- NOUVEAU : Calculateur de satisfaction amélioré -->
     <script>
@@ -746,6 +749,7 @@ if (typeof window !== 'undefined') {
     
     <!-- Application principale -->
     <script src="app.js"></script>
+	<script src="global-stats.js"></script>
 
     <!-- NOUVEAU : Script pour gérer la configuration de satisfaction -->
     <script>

@@ -1,6 +1,6 @@
-// app.js - Version avec affichage en tableaux, tri et filtres
+// app.js - Version avec affichage en tableaux, tri et filtres + STATISTIQUES GLOBALES
 // Crèches de Strasbourg - Analyse d'enquêtes de satisfaction
-// VERSION CORRIGÉE : Calcul du taux de satisfaction fiabilisé
+// VERSION CORRIGÉE : Calcul du taux de satisfaction fiabilisé + Module statistiques globales
 
 (function() {
     'use strict';
@@ -1083,6 +1083,14 @@
 
         // NOUVELLE MÉTHODE : Rendu par type de vue
         renderEtablissementsByView(surveyData, analyzer, viewType) {
+            if (viewType === 'global') {
+                // Rediriger vers la méthode globale
+                if (window.surveyApp && window.surveyApp.showGlobalStats) {
+                    window.surveyApp.showGlobalStats();
+                }
+                return;
+            }
+            
             this.prepareTableData(surveyData, analyzer);
             this.renderTableView(surveyData, analyzer, viewType);
         }
@@ -1445,6 +1453,7 @@
                 'satisfaction': '📊 Classement par satisfaction',
                 'gestionnaires': '👥 Groupement par gestionnaires',
                 'repondants': '📈 Classement par nombre de répondants',
+                'global': '🌍 Statistiques globales',
                 'tableaux': '📋 Vue d\'ensemble'
             };
             return titles[viewType] || '📋 Établissements';
@@ -1820,8 +1829,43 @@
             this.dataAnalyzer = new DataAnalyzer();
             this.uiRenderer = new UIRenderer();
             this.pdfExporter = window.AdvancedPDFExporter ? new window.AdvancedPDFExporter() : new PDFExporter();
+            
+            // NOUVEAU : Gestionnaire des statistiques globales
+            this.globalStatsManager = window.GlobalStatsManager ? new window.GlobalStatsManager() : null;
+            
             this.initializeEventListeners();
             console.log('✅ Application initialisée avec', window.AdvancedPDFExporter ? 'AdvancedPDFExporter' : 'PDFExporter basique');
+            
+            if (this.globalStatsManager) {
+                console.log('✅ Module de statistiques globales chargé');
+            } else {
+                console.warn('⚠️ Module de statistiques globales non disponible');
+            }
+            
+            // Exposer les méthodes globales nécessaires
+            this.exposeGlobalMethods();
+        }
+
+        // NOUVELLE MÉTHODE : Exposer les méthodes globales pour les statistiques
+        exposeGlobalMethods() {
+            // Méthodes pour l'interaction avec les statistiques globales
+            window.globalStatsExportPDF = () => {
+                if (this.globalStatsManager && this.globalStatsManager.exportGlobalPDF) {
+                    this.globalStatsManager.exportGlobalPDF();
+                } else {
+                    console.error('Export PDF global non disponible');
+                }
+            };
+            
+            // Méthode pour accéder aux données globales depuis l'interface
+            window.getGlobalStatsData = () => {
+                if (this.globalStatsManager && this.globalStatsManager.globalData) {
+                    return this.globalStatsManager.globalData;
+                }
+                return null;
+            };
+            
+            console.log('✅ Méthodes globales exposées pour les statistiques');
         }
 
         initializeEventListeners() {
@@ -2156,15 +2200,120 @@
             document.querySelector(`[data-view="${viewType}"]`).classList.add('active');
             
             const surveyData = this.dataAnalyzer.getSurveyData();
-            this.uiRenderer.renderEtablissementsByView(surveyData, this.dataAnalyzer, viewType);
+            
+            if (viewType === 'global') {
+                // NOUVEAU : Affichage des statistiques globales
+                this.showGlobalStats();
+            } else {
+                // Vue standard (tableaux d'établissements)
+                this.uiRenderer.renderEtablissementsByView(surveyData, this.dataAnalyzer, viewType);
+            }
+        }
+
+        // NOUVELLE MÉTHODE : Afficher les statistiques globales
+        showGlobalStats() {
+            if (!this.globalStatsManager) {
+                console.error('❌ Module de statistiques globales non disponible');
+                const container = document.getElementById('etablissements-container');
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #666;">
+                        <h3>❌ Module non disponible</h3>
+                        <p>Le module des statistiques globales n'a pas pu être chargé.</p>
+                        <p>Vérifiez que le fichier global-stats.js est correctement inclus.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            console.log('🌍 Affichage des statistiques globales...');
+            
+            const surveyData = this.dataAnalyzer.getSurveyData();
+            const rawData = this.dataAnalyzer.getRawData();
+            
+            if (!surveyData || Object.keys(surveyData).length === 0) {
+                console.warn('⚠️ Aucune donnée à analyser');
+                const container = document.getElementById('etablissements-container');
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #666;">
+                        <h3>📊 Aucune donnée</h3>
+                        <p>Veuillez d'abord charger et analyser un fichier de données.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                // Analyser les données globalement
+                this.globalStatsManager.analyzeGlobalData(surveyData, rawData);
+                
+                // Afficher l'interface
+                const container = document.getElementById('etablissements-container');
+                this.globalStatsManager.renderGlobalStats(container);
+                
+                console.log('✅ Statistiques globales affichées');
+            } catch (error) {
+                console.error('❌ Erreur lors de l\'affichage des statistiques globales:', error);
+                const container = document.getElementById('etablissements-container');
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #dc3545;">
+                        <h3>❌ Erreur</h3>
+                        <p>Une erreur est survenue lors de l'analyse des données :</p>
+                        <p><code>${error.message}</code></p>
+                        <button onclick="window.surveyApp.switchView('etablissements')" 
+                                style="margin-top: 20px; padding: 10px 20px; background: #4facfe; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            Retour à la liste des établissements
+                        </button>
+                    </div>
+                `;
+            }
         }
 
         renderResults() {
             const sd = this.dataAnalyzer.getSurveyData();
             const rd = this.dataAnalyzer.getRawData();
+            
+            // Rendu standard
             this.uiRenderer.renderSummary(sd, rd);
             this.uiRenderer.renderEtablissements(sd, this.dataAnalyzer);
+            
+            // NOUVEAU : Préparer les données globales si le module est disponible
+            if (this.globalStatsManager && Object.keys(sd).length > 0) {
+                try {
+                    console.log('🌍 Préparation des données globales...');
+                    this.globalStatsManager.analyzeGlobalData(sd, rd);
+                    console.log('✅ Données globales préparées');
+                } catch (error) {
+                    console.warn('⚠️ Erreur lors de la préparation des données globales:', error);
+                }
+            }
+            
             this.uiRenderer.showResults();
+        }
+
+        // NOUVELLE MÉTHODE : Rafraîchir les statistiques globales
+        refreshGlobalStats() {
+            if (!this.globalStatsManager) return;
+            
+            const sd = this.dataAnalyzer.getSurveyData();
+            const rd = this.dataAnalyzer.getRawData();
+            
+            if (Object.keys(sd).length > 0) {
+                try {
+                    console.log('🔄 Actualisation des statistiques globales...');
+                    this.globalStatsManager.analyzeGlobalData(sd, rd);
+                    
+                    // Si on est actuellement sur la vue globale, la rafraîchir
+                    const activeTab = document.querySelector('.tab-btn.active');
+                    if (activeTab && activeTab.dataset.view === 'global') {
+                        const container = document.getElementById('etablissements-container');
+                        this.globalStatsManager.renderGlobalStats(container);
+                    }
+                    
+                    console.log('✅ Statistiques globales actualisées');
+                } catch (error) {
+                    console.warn('⚠️ Erreur lors de l\'actualisation des statistiques globales:', error);
+                }
+            }
         }
 
         showDetails(name) {
@@ -2198,18 +2347,72 @@
             this.pdfExporter.exportAllDataToJSON(sd, rd);
         }
 
+        // NOUVELLE MÉTHODE : Export spécifique des statistiques globales
+        exportGlobalStatsPDF() {
+            if (!this.globalStatsManager) {
+                console.error('❌ Module de statistiques globales non disponible');
+                alert('Le module de statistiques globales n\'est pas disponible.');
+                return;
+            }
+
+            if (!this.globalStatsManager.globalData) {
+                console.warn('⚠️ Aucune donnée globale à exporter');
+                alert('Veuillez d\'abord analyser des données avant d\'exporter le rapport global.');
+                return;
+            }
+
+            try {
+                this.globalStatsManager.exportGlobalPDF();
+                console.log('✅ Export PDF global lancé');
+            } catch (error) {
+                console.error('❌ Erreur lors de l\'export PDF global:', error);
+                alert('Erreur lors de l\'export du rapport global: ' + error.message);
+            }
+        }
+
+        // NOUVELLE MÉTHODE : Obtenir les données globales
+        getGlobalStatsData() {
+            if (this.globalStatsManager && this.globalStatsManager.globalData) {
+                return this.globalStatsManager.globalData;
+            }
+            return null;
+        }
+
+        // NOUVELLE MÉTHODE : Vérifier si les statistiques globales sont disponibles
+        hasGlobalStats() {
+            return this.globalStatsManager && this.globalStatsManager.globalData;
+        }
+
         resetToUpload() {
             this.fileHandler.reset();
             this.dataAnalyzer.reset();
+            
+            // NOUVEAU : Réinitialiser le gestionnaire de statistiques globales
+            if (this.globalStatsManager) {
+                this.globalStatsManager.reset();
+            }
+            
             document.getElementById('file-input').value = '';
             document.getElementById('mapping-input').value = '';
             if (document.getElementById('json-input')) {
                 document.getElementById('json-input').value = '';
             }
+            
+            // Réinitialiser l'onglet actif
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            const defaultTab = document.querySelector('[data-view="etablissements"]');
+            if (defaultTab) {
+                defaultTab.classList.add('active');
+            }
+            
             this.uiRenderer.hideFileInfo();
             this.hideMappingInfo();
             this.hideJSONInfo();
             this.uiRenderer.showUpload();
+            
+            console.log('🔄 Application réinitialisée');
         }
     }
 
@@ -2222,6 +2425,93 @@
             console.error('❌ Erreur d\'initialisation:', err);
         }
     }
+
+    // ===== FONCTIONS GLOBALES POUR LES STATISTIQUES =====
+    // Ces fonctions sont appelées depuis l'interface des statistiques globales
+    
+    window.toggleQuestion = function(questionId) {
+        const details = document.getElementById(questionId);
+        if (!details) return;
+        
+        const header = details.previousElementSibling;
+        const icon = header ? header.querySelector('.toggle-icon') : null;
+        
+        if (details.style.display === 'none' || !details.style.display) {
+            details.style.display = 'block';
+            if (icon) icon.textContent = '▲';
+        } else {
+            details.style.display = 'none';
+            if (icon) icon.textContent = '▼';
+        }
+    };
+
+    window.filterOpenResponses = function(questionTitle, gestionnaire) {
+        console.log(`🔍 Filtrage des réponses pour: "${questionTitle}", gestionnaire: "${gestionnaire}"`);
+        
+        // Trouver le conteneur des réponses pour cette question
+        const questionItems = document.querySelectorAll('.question-item');
+        questionItems.forEach(item => {
+            const header = item.querySelector('.question-header h4');
+            if (header && header.textContent.includes(questionTitle)) {
+                const responsesList = item.querySelector('.open-responses-list');
+                if (responsesList) {
+                    const responses = responsesList.querySelectorAll('.open-response-item');
+                    responses.forEach(response => {
+                        const meta = response.querySelector('.response-meta');
+                        if (meta) {
+                            const shouldShow = !gestionnaire || meta.textContent.includes(gestionnaire);
+                            response.style.display = shouldShow ? 'block' : 'none';
+                        }
+                    });
+                }
+            }
+        });
+    };
+
+    window.showAllResponses = function(questionTitle) {
+        console.log(`📋 Affichage de toutes les réponses pour: "${questionTitle}"`);
+        
+        // Implémenter l'affichage de toutes les réponses
+        // Cette fonction peut être étendue selon les besoins
+        const questionItems = document.querySelectorAll('.question-item');
+        questionItems.forEach(item => {
+            const header = item.querySelector('.question-header h4');
+            if (header && header.textContent.includes(questionTitle)) {
+                const responsesList = item.querySelector('.open-responses-list');
+                if (responsesList) {
+                    responsesList.style.maxHeight = 'none';
+                    const showMoreBtn = item.querySelector('.show-more-responses');
+                    if (showMoreBtn) {
+                        showMoreBtn.style.display = 'none';
+                    }
+                }
+            }
+        });
+    };
+
+    // Fonction pour l'export PDF global accessible depuis l'interface
+    window.exportGlobalPDF = function() {
+        if (window.surveyApp && window.surveyApp.exportGlobalStatsPDF) {
+            window.surveyApp.exportGlobalStatsPDF();
+        } else {
+            console.error('❌ Export PDF global non disponible');
+            alert('L\'export PDF global n\'est pas disponible.');
+        }
+    };
+
+    // Fonction pour rafraîchir les statistiques globales
+    window.refreshGlobalStats = function() {
+        if (window.surveyApp && window.surveyApp.refreshGlobalStats) {
+            window.surveyApp.refreshGlobalStats();
+        }
+    };
+
+    // Fonction pour basculer vers une vue spécifique
+    window.switchToView = function(viewType) {
+        if (window.surveyApp && window.surveyApp.switchView) {
+            window.surveyApp.switchView(viewType);
+        }
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeApp);
